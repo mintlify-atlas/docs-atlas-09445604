@@ -7,11 +7,7 @@
     "light": "#244455",
     "dark": "#244455"
   },
-  "favicon": "/favicon.png",
-  "logo": {
-    "light": "/logo.png",
-    "dark": "/logo.png"
-  },
+  "favicon": "https://media.brand.dev/5f89fdd0-2051-4636-9ddc-ad62ee78d900.png",
   "navbar": {
     "primary": {
       "type": "github",
