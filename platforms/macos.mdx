@@ -1,0 +1,294 @@
+---
+title: 'macOS Setup'
+description: 'Configure the Raylib Container on macOS with XQuartz for display forwarding'
+---
+
+## Overview
+
+Running graphical Docker containers on macOS requires additional setup because macOS doesn't natively support X11. You'll need to install and configure XQuartz, an X Window System implementation for macOS, to forward the graphical display from the Docker container to your macOS environment.
+
+## Prerequisites
+
+<Note>
+This guide assumes you have Docker Desktop for Mac already installed. If not, download it from the [official Docker website](https://www.docker.com/products/docker-desktop/).
+</Note>
+
+## Setup Steps
+
+<Steps>
+  <Step title="Install XQuartz">
+    XQuartz is an X Window System implementation for macOS. It is required to forward the graphical display from the Docker container to your macOS environment.
+
+    **Download and Install:**
+    
+    1. Download XQuartz from the official website: [https://www.xquartz.org/](https://www.xquartz.org/)
+    2. Install XQuartz by following the instructions provided in the downloaded package
+    3. Double-click the `.dmg` file and drag XQuartz to your Applications folder
+
+    <Warning>
+    After installation, you **must log out and log back in** to your macOS account for the changes to take effect.
+    </Warning>
+
+    Alternatively, install via Homebrew:
+
+    ```bash
+    brew install --cask xquartz
+    ```
+  </Step>
+
+  <Step title="Configure XQuartz Security Settings">
+    After installing and logging back in, configure XQuartz to allow connections from network clients:
+
+    1. Open XQuartz from your Applications folder
+    2. Go to **XQuartz Preferences** (XQuartz → Preferences in the menu bar)
+    3. Navigate to the **Security** tab
+    4. Check the box for **"Allow connections from network clients"**
+
+    <Info>
+    This setting is crucial for Docker containers to connect to XQuartz. Without it, the display forwarding will fail.
+    </Info>
+
+    After changing this setting, quit and restart XQuartz for the changes to take effect.
+  </Step>
+
+  <Step title="Start XQuartz and Enable Display Access">
+    Open a terminal and run the following command to allow connections from the local machine:
+
+    ```bash
+    xhost + 127.0.0.1
+    ```
+
+    This command allows connections from localhost (127.0.0.1), which is necessary for Docker to forward the graphical display.
+
+    <Tip>
+    You need to run this command each time you start XQuartz. Consider adding it to a startup script if you use the container frequently.
+    </Tip>
+
+    To verify XQuartz is running:
+
+    ```bash
+    echo $DISPLAY
+    ```
+
+    You should see output like `/private/tmp/com.apple.launchd.xxx/org.xquartz:0`
+  </Step>
+
+  <Step title="Run the Docker Container">
+    Now you can run the Docker container with the necessary parameters to forward the display:
+
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=127.0.0.1:0 \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        raylib_container
+    ```
+
+    <Note>
+    Notice the key difference from Linux: on macOS, we use `DISPLAY=127.0.0.1:0` instead of `DISPLAY=$DISPLAY`.
+    </Note>
+  </Step>
+
+  <Step title="Verify the Graphics Connection">
+    Inside the container, run `xeyes` to verify that the graphical display is working correctly:
+
+    ```bash
+    xeyes
+    ```
+
+    If `xeyes` opens a window and the eyes follow your mouse cursor, the configuration is correct, and you can proceed with developing your Raylib project.
+  </Step>
+</Steps>
+
+## Understanding macOS Display Forwarding
+
+### DISPLAY Environment Variable
+
+The key difference between Linux and macOS is how the `DISPLAY` variable is set:
+
+<CodeGroup>
+```bash Linux
+# Linux uses the host's DISPLAY variable
+-e DISPLAY=$DISPLAY
+```
+
+```bash macOS
+# macOS uses a fixed address pointing to XQuartz
+-e DISPLAY=127.0.0.1:0
+```
+</CodeGroup>
+
+### Why 127.0.0.1:0?
+
+- `127.0.0.1`: Localhost IP address
+- `:0`: Display number 0 (the first display)
+
+XQuartz listens on `127.0.0.1:0` for X11 connections, so we point the container to this address.
+
+## Running the Container
+
+Here's the complete command with explanations:
+
+```bash
+docker run -it --rm \
+    -e DISPLAY=127.0.0.1:0 \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    raylib_container
+```
+
+**Parameter Explanation:**
+
+- `-it`: Starts the container in interactive mode with a terminal attached
+- `--rm`: Automatically removes the container when it exits
+- `-e DISPLAY=127.0.0.1:0`: Sets the `DISPLAY` environment variable to the XQuartz address
+- `-v /tmp/.X11-unix:/tmp/.X11-unix`: Mounts the X11 socket directory for communication
+- `-v ./user_code:/app/user_code`: Mounts your local `user_code` directory to `/app/user_code` inside the container
+- `raylib_container`: The name of the Docker image
+
+<Info>
+Place your Raylib project files in the `user_code` directory on your Mac, and they'll be accessible at `/app/user_code` inside the container.
+</Info>
+
+## Hardware Acceleration on macOS
+
+<Warning>
+Hardware acceleration is **not available** when running Docker containers on macOS. The container will use software rendering automatically.
+</Warning>
+
+Unlike Linux, you cannot pass GPU devices to containers on macOS. The `--device /dev/dri:/dev/dri` flag used on Linux won't work. All rendering will be done in software mode.
+
+For better performance:
+- Keep your graphics workload minimal during development
+- Use simpler assets and lower resolutions for testing
+- Consider testing on a Linux machine for performance-critical work
+
+## Common Workflows
+
+### Starting a Development Session
+
+<Steps>
+  <Step title="Launch XQuartz">
+    Open XQuartz from Applications or Spotlight.
+  </Step>
+
+  <Step title="Enable Display Access">
+    ```bash
+    xhost + 127.0.0.1
+    ```
+  </Step>
+
+  <Step title="Start the Container">
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=127.0.0.1:0 \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        raylib_container
+    ```
+  </Step>
+</Steps>
+
+### Creating a Launch Script
+
+Create a script to automate the process:
+
+```bash
+#!/bin/bash
+# save as start-raylib.sh
+
+# Ensure XQuartz is running
+open -a XQuartz
+
+# Wait a moment for XQuartz to start
+sleep 2
+
+# Allow display access
+xhost + 127.0.0.1
+
+# Run the container
+docker run -it --rm \
+    -e DISPLAY=127.0.0.1:0 \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    raylib_container
+```
+
+Make it executable:
+
+```bash
+chmod +x start-raylib.sh
+./start-raylib.sh
+```
+
+## Troubleshooting
+
+<Accordion title="XQuartz window doesn't appear">
+  **Symptoms:** Container runs but no graphics window appears
+
+  **Solutions:**
+  1. Verify XQuartz is running (you should see it in the menu bar)
+  2. Check that you ran `xhost + 127.0.0.1`
+  3. Ensure "Allow connections from network clients" is enabled in XQuartz Preferences → Security
+  4. Try restarting XQuartz
+  5. Verify the DISPLAY variable: `echo $DISPLAY` inside the container should show `127.0.0.1:0`
+</Accordion>
+
+<Accordion title="Connection refused error">
+  **Full error:** `Error: Can't open display: 127.0.0.1:0`
+
+  **Solutions:**
+  1. Ensure XQuartz is running before starting the container
+  2. Check that you've logged out and back in after installing XQuartz
+  3. Verify the security setting is enabled: XQuartz Preferences → Security → "Allow connections from network clients"
+  4. Run `xhost + 127.0.0.1` again
+</Accordion>
+
+<Accordion title="xeyes or graphics apps are slow">
+  **Cause:** Software rendering is slower than hardware acceleration
+
+  **Solutions:**
+  - This is expected behavior on macOS
+  - Reduce window size and complexity during development
+  - Use Docker Desktop's resource settings to allocate more CPU/memory
+  - For performance testing, use a Linux machine or native macOS build
+</Accordion>
+
+<Accordion title="Permission denied when mounting volumes">
+  **Full error:** `Error response from daemon: error while creating mount source path`
+
+  **Solutions:**
+  1. Ensure the `user_code` directory exists: `mkdir -p user_code`
+  2. Check Docker Desktop → Preferences → Resources → File Sharing
+  3. Add the directory containing your project to the allowed paths
+  4. Use absolute paths: `-v /Users/yourname/project/user_code:/app/user_code`
+</Accordion>
+
+## Additional Notes
+
+<Tip>
+**Important reminders for macOS users:**
+- Ensure XQuartz is running before starting the Docker container
+- Run `xhost + 127.0.0.1` in each new terminal session
+- Use `DISPLAY=127.0.0.1:0` (not `$DISPLAY`)
+- Hardware acceleration is not available
+</Tip>
+
+<Info>
+If you encounter issues not covered here, double-check that you've:
+1. Logged out and back in after installing XQuartz
+2. Enabled "Allow connections from network clients" in XQuartz security settings
+3. Started XQuartz before running the container
+4. Run the `xhost + 127.0.0.1` command
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build the Image" icon="hammer" href="/setup/building-image">
+    Learn how to build the Raylib Container image
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first Raylib project
+  </Card>
+</CardGroup>

@@ -1,80 +1,262 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quickstart Guide"
+description: "Get up and running with Raylib Container in minutes"
 ---
 
-## Get started in three steps
+This quickstart guide will help you build and run your first Raylib game in the container environment in just a few steps.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, make sure you've completed the [prerequisites](/prerequisites):
+- Docker installed and running
+- Display access enabled with `xhost +local:docker`
+- User added to docker group (optional but recommended)
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+## Quick Start
+
+<Steps>
+  <Step title="Clone or download the repository">
+    Get the Raylib Container files from GitHub:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```bash
+    git clone https://github.com/gm64x/RayLibContainer.git
+    cd RayLibContainer
+    ```
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    Or download the repository as a ZIP file and extract it.
+  </Step>
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+  <Step title="Build the Docker image">
+    Build the container image with Raylib pre-compiled:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```bash
+    docker build -t raylib_container .
+    ```
+    
+    <Info>
+    This step will take several minutes as it compiles Raylib from source. The image is built using a multi-stage process with Alpine Linux for minimal size.
+    </Info>
+    
+    The build process:
+    - Installs build dependencies (GCC, CMake, Mesa, X11 libraries)
+    - Clones the latest Raylib from GitHub
+    - Compiles Raylib with optimizations
+    - Creates a minimal runtime image with only necessary components
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Run the container with hardware acceleration">
+    Start the container with GPU access for best performance:
+    
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        --device /dev/dri:/dev/dri \
+        raylib_container
+    ```
+    
+    <Tip>
+    If you encounter graphics errors, try the software rendering option in Step 4.
+    </Tip>
+    
+    **What these flags do:**
+    - `-it` - Interactive mode with terminal
+    - `--rm` - Auto-remove container on exit
+    - `-e DISPLAY=$DISPLAY` - Forward display to your screen
+    - `-v /tmp/.X11-unix:/tmp/.X11-unix` - Mount X11 socket
+    - `-v ./user_code:/app/user_code` - Mount your code directory
+    - `--device /dev/dri:/dev/dri` - GPU access for hardware acceleration
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Alternative: Software rendering (if needed)">
+    If hardware acceleration doesn't work, use software rendering:
+    
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        -e LIBGL_ALWAYS_SOFTWARE=1 \
+        raylib_container
+    ```
+    
+    <Warning>
+    Software rendering uses CPU instead of GPU, resulting in lower performance (typically 45-60 FPS vs 300+ FPS with hardware acceleration).
+    </Warning>
+  </Step>
 
-### Step 3: Go live
+  <Step title="Verify graphics connection">
+    Once inside the container, test the display connection:
+    
+    ```bash
+    xeyes
+    ```
+    
+    A window with eyes that follow your mouse should appear. If you see the window, your graphics setup is working correctly!
+    
+    Close the xeyes window by clicking the X button or pressing Ctrl+C in the terminal.
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Compile the example game">
+    Navigate to the user code directory and compile the included example:
+    
+    ```bash
+    cd /app/user_code
+    gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+    ```
+    
+    **Compiler flags explained:**
+    - `my_game.c` - Your source code file
+    - `-o my_game` - Output executable name
+    - `-lraylib` - Link Raylib library
+    - `-lGL -lm -lpthread -ldl -lrt -lX11` - Required system libraries
+  </Step>
 
-## Next steps
+  <Step title="Run your game">
+    Execute your compiled game:
+    
+    ```bash
+    ./my_game
+    ```
+    
+    You should see a window displaying "Congrats! You created your first window!" 🎉
+    
+    The example creates an 800x450 window running at 60 FPS. Press ESC or click the close button to exit.
+  </Step>
+</Steps>
 
-Now that you have your docs running, explore these key features:
+## The Example Game Code
+
+The included `my_game.c` demonstrates a basic Raylib window:
+
+```c my_game.c
+#include "raylib.h"
+
+int main(void)
+{
+    // Initialization
+    const int screenWidth = 800;
+    const int screenHeight = 450;
+
+    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+    SetTargetFPS(60);
+
+    // Main game loop
+    while (!WindowShouldClose())
+    {
+        // Update
+        // TODO: Update your variables here
+
+        // Draw
+        BeginDrawing();
+            ClearBackground(RAYWHITE);
+            DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+        EndDrawing();
+    }
+
+    // De-Initialization
+    CloseWindow();
+    return 0;
+}
+```
+
+## Next Steps
+
+Now that you have Raylib Container running, here's what to explore next:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Learn Development Workflow" icon="code" href="/development/working-in-container">
+    Understand how to develop games inside the container
+  </Card>
+  <Card title="Compilation Guide" icon="hammer" href="/development/compiling-projects">
+    Learn advanced compilation techniques and flags
+  </Card>
+  <Card title="Example Walkthrough" icon="book" href="/development/example-game">
+    Deep dive into the example game code
+  </Card>
+  <Card title="Platform-Specific Setup" icon="desktop" href="/platforms/linux">
+    Platform guides for Linux, macOS, and Windows
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Development Workflow
+
+Here's the typical development cycle:
+
+1. **Edit code** on your host system in the `user_code/` directory
+2. **Changes sync automatically** to the container via volume mount
+3. **Compile inside the container** using GCC
+4. **Run and test** your game in the container
+5. **Iterate** - repeat the process as you develop
+
+<Tip>
+You can use your favorite code editor on the host system. Changes are instantly available in the container thanks to volume mounting.
+</Tip>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Container won't start - Permission denied error">
+    You may need to run `sudo docker ...` if you haven't added your user to the docker group:
+    
+    ```bash
+    sudo usermod -aG docker $USER
+    ```
+    
+    Then log out and log back in for the change to take effect.
+  </Accordion>
+
+  <Accordion title="Window doesn't appear - Display error">
+    Make sure you ran `xhost +local:docker` before starting the container:
+    
+    ```bash
+    xhost +local:docker
+    ```
+    
+    This command needs to be run in each new graphical session.
+  </Accordion>
+
+  <Accordion title="Graphics errors - DRI/MESA failures">
+    Try software rendering instead of hardware acceleration:
+    
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        -e LIBGL_ALWAYS_SOFTWARE=1 \
+        raylib_container
+    ```
+  </Accordion>
+
+  <Accordion title="Compilation errors - Library not found">
+    Make sure you're using all required library flags:
+    
+    ```bash
+    gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+    ```
+    
+    The order and inclusion of all flags is important for successful linking.
+  </Accordion>
+</AccordionGroup>
+
+For more detailed troubleshooting, see the [Troubleshooting Guide](/troubleshooting/common-issues).
+
+## Using Pre-built Images
+
+Instead of building locally, you can pull the pre-built image from Docker Hub:
+
+```bash
+docker pull gmaia325/raylib_container
+docker run -it --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    --device /dev/dri:/dev/dri \
+    gmaia325/raylib_container
+```
+
+<Info>
+The pre-built image from Docker Hub may not have the absolute latest Raylib version. Building locally ensures you get the most recent Raylib release.
+</Info>

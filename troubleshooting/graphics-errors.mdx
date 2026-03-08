@@ -1,0 +1,320 @@
+---
+title: 'Graphics Errors'
+description: 'Troubleshooting display connection and graphics rendering issues'
+---
+
+This page addresses graphics-related errors you may encounter when running graphical applications in the Raylib Container.
+
+## Display Connection Errors
+
+<Accordion title="Error: cannot open display">
+
+**Error Message:**
+```bash
+cannot open display: :0
+```
+
+**Cause:**
+
+This error occurs when the container cannot connect to your host system's graphics server (X11 or Wayland via XWayland). Common causes include:
+- The `xhost +local:docker` command wasn't run
+- The `DISPLAY` environment variable isn't being passed correctly
+- X11 socket isn't mounted properly
+
+**Solutions:**
+
+<Steps>
+  <Step title="Grant Display Access">
+    Allow Docker containers to connect to your graphics server:
+    ```bash
+    xhost +local:docker
+    ```
+    
+    <Note>
+    This command needs to be run in each new graphical session or after rebooting the system.
+    </Note>
+  </Step>
+
+  <Step title="Verify DISPLAY Variable">
+    Ensure the `DISPLAY` environment variable is set on your host:
+    ```bash
+    echo $DISPLAY
+    ```
+    
+    This should output something like `:0` or `:1`.
+  </Step>
+
+  <Step title="Check Docker Run Command">
+    Verify your `docker run` command includes these parameters:
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        raylib_container
+    ```
+    
+    - `-e DISPLAY=$DISPLAY` passes the host's DISPLAY variable to the container
+    - `-v /tmp/.X11-unix:/tmp/.X11-unix` mounts the X11 socket
+  </Step>
+
+  <Step title="Test Graphics Connection">
+    Once inside the container, test the graphics connection:
+    ```bash
+    xeyes
+    ```
+    
+    A window with eyes that follow the mouse should appear.
+  </Step>
+</Steps>
+
+</Accordion>
+
+## Hardware Acceleration Errors
+
+<Accordion title="MESA: error: Failed to query drm device">
+
+**Error Message:**
+```bash
+MESA: error: Failed to query drm device.
+```
+
+**Cause:**
+
+This error indicates that the container cannot access your GPU's Direct Rendering Infrastructure (DRI) devices. Hardware acceleration is not working.
+
+**Solutions:**
+
+<Steps>
+  <Step title="Verify DRI Device Flag">
+    Ensure your `docker run` command includes the `--device` flag:
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        --device /dev/dri:/dev/dri \
+        raylib_container
+    ```
+    
+    The `--device /dev/dri:/dev/dri` flag maps the host's Direct Rendering Infrastructure devices into the container.
+  </Step>
+
+  <Step title="Check DRI Devices Exist">
+    Verify DRI devices exist on your host:
+    ```bash
+    ls -l /dev/dri/
+    ```
+    
+    You should see devices like `card0`, `renderD128`, etc.
+  </Step>
+
+  <Step title="Fallback to Software Rendering">
+    If hardware acceleration still doesn't work, use software rendering:
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        -e LIBGL_ALWAYS_SOFTWARE=1 \
+        raylib_container
+    ```
+    
+    <Warning>
+    Performance will be lower with software rendering, but it works as a reliable fallback.
+    </Warning>
+  </Step>
+</Steps>
+
+</Accordion>
+
+<Accordion title="glx: failed to create dri3 screen">
+
+**Error Message:**
+```bash
+glx: failed to create dri3 screen
+```
+
+**Cause:**
+
+This error occurs when GLX (OpenGL Extension to the X Window System) cannot initialize DRI3 for hardware-accelerated rendering. This is a hardware acceleration issue.
+
+**Solution:**
+
+<Steps>
+  <Step title="Ensure DRI Device Access">
+    Make sure you're using the `--device /dev/dri:/dev/dri` flag:
+    ```bash
+    docker run -it --rm \
+        --device /dev/dri:/dev/dri \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        raylib_container
+    ```
+  </Step>
+
+  <Step title="Use Software Rendering">
+    If the error persists, switch to software rendering:
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -e LIBGL_ALWAYS_SOFTWARE=1 \
+        raylib_container
+    ```
+  </Step>
+</Steps>
+
+</Accordion>
+
+<Accordion title="failed to load driver: iris/radeon/etc.">
+
+**Error Message:**
+```bash
+failed to load driver: iris
+failed to load driver: radeon
+failed to load driver: nouveau
+# (or other GPU-specific drivers)
+```
+
+**Cause:**
+
+The container cannot load the specific graphics driver for your GPU (Intel Iris, AMD Radeon, NVIDIA, etc.). This is a hardware acceleration compatibility issue.
+
+**Solution:**
+
+<Steps>
+  <Step title="Verify DRI Device Mapping">
+    Double-check that DRI devices are mapped:
+    ```bash
+    docker run -it --rm \
+        --device /dev/dri:/dev/dri \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        raylib_container
+    ```
+  </Step>
+
+  <Step title="Switch to Software Rendering">
+    Use software rendering to bypass driver issues:
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -e LIBGL_ALWAYS_SOFTWARE=1 \
+        raylib_container
+    ```
+    
+    <Info>
+    Software rendering uses the CPU instead of the GPU and works across all hardware configurations.
+    </Info>
+  </Step>
+</Steps>
+
+</Accordion>
+
+## When to Use Each Rendering Mode
+
+<CardGroup cols={2}>
+  <Card title="Hardware Acceleration" icon="microchip">
+    **Use when:**
+    - You need maximum performance
+    - Your GPU is compatible
+    - No driver errors occur
+    
+    **Command:**
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        --device /dev/dri:/dev/dri \
+        raylib_container
+    ```
+  </Card>
+  
+  <Card title="Software Rendering" icon="desktop">
+    **Use when:**
+    - Hardware acceleration fails
+    - You see MESA, DRM, GLX, or driver errors
+    - Compatibility is more important than performance
+    
+    **Command:**
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -e LIBGL_ALWAYS_SOFTWARE=1 \
+        raylib_container
+    ```
+  </Card>
+</CardGroup>
+
+<Tip>
+**Recommended Approach:** Try hardware acceleration first (Option 1). If you encounter any graphics errors related to `dri`, `glx`, `mesa`, or drivers, switch to software rendering (Option 2).
+</Tip>
+
+## xhost Command Issues
+
+<Accordion title="xhost command not found">
+
+**Error Message:**
+```bash
+bash: xhost: command not found
+```
+
+**Cause:**
+
+The `xhost` utility is not installed on your system.
+
+**Solution:**
+
+Install the package that provides `xhost` for your distribution:
+
+<CodeGroup>
+```bash Ubuntu/Debian
+sudo apt-get install x11-xserver-utils
+```
+
+```bash Fedora/RHEL
+sudo dnf install xorg-x11-server-utils
+```
+
+```bash Arch Linux
+sudo pacman -S xorg-xhost
+```
+</CodeGroup>
+
+</Accordion>
+
+<Accordion title="xhost: unable to open display">
+
+**Error Message:**
+```bash
+xhost: unable to open display ""
+```
+
+**Cause:**
+
+You're trying to run `xhost` from a non-graphical session (e.g., SSH, TTY console, or before the display server has started).
+
+**Solution:**
+
+<Steps>
+  <Step title="Run from Graphical Session">
+    Ensure you're running the command from within a graphical session (desktop environment).
+  </Step>
+
+  <Step title="Verify DISPLAY Variable">
+    Check that the `DISPLAY` environment variable is set:
+    ```bash
+    echo $DISPLAY
+    ```
+    
+    If empty, you're not in a graphical session.
+  </Step>
+
+  <Step title="Add to Startup Scripts">
+    If you need this to run at login, add it to your graphical session startup scripts (`.profile`, `.xinitrc`, etc.), not to shell RC files.
+  </Step>
+</Steps>
+
+</Accordion>

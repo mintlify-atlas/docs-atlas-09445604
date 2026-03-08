@@ -1,0 +1,134 @@
+---
+title: Introduction
+description: Learn about Raylib Container, a Docker-based development environment for game development with Raylib
+---
+
+## What is Raylib Container?
+
+Raylib Container is a Docker-based development environment designed for game development using [Raylib](https://www.raylib.com/). It provides a consistent and isolated development environment that minimizes configuration issues on your host system.
+
+<Info>
+The pre-built container image is available on Docker Hub: [gmaia325/raylib_container](https://hub.docker.com/r/gmaia325/raylib_container)
+</Info>
+
+## Why Use Raylib Container?
+
+Developing graphical applications like games often requires specific library versions, graphics drivers, and system dependencies. Setting these up can be challenging and error-prone across different operating systems and configurations. Raylib Container solves these problems by:
+
+<CardGroup cols={2}>
+  <Card title="Consistent Environment" icon="docker">
+    Every developer gets the exact same development environment, regardless of their host operating system
+  </Card>
+  
+  <Card title="Zero Configuration" icon="wand-magic-sparkles">
+    Pre-configured with GCC, Raylib libraries, and all necessary dependencies ready to use
+  </Card>
+  
+  <Card title="Isolated Development" icon="shield">
+    Keep your host system clean while having access to all required development tools
+  </Card>
+  
+  <Card title="Latest Raylib" icon="code-branch">
+    Built from the official Raylib GitHub repository to ensure you always have the latest version
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+Raylib Container uses a multi-stage Docker build process based on Alpine Linux for a minimal footprint:
+
+### Stage 1: Build
+
+The builder stage compiles Raylib from source:
+
+```dockerfile
+FROM alpine:latest AS builder
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    git \
+    cmake \
+    make \
+    gcc \
+    g++ \
+    linux-headers \
+    mesa-dev \
+    alsa-lib-dev \
+    libx11-dev \
+    libxrandr-dev \
+    libxinerama-dev \
+    libxcursor-dev \
+    libxi-dev
+
+RUN git clone --depth=1 https://github.com/raysan5/raylib.git && \
+    cd raylib && \
+    mkdir build && cd build && \
+    cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DPLATFORM=Desktop \
+    -DBUILD_SHARED_LIBS=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    make -j$(nproc) && \
+    make install
+```
+
+### Stage 2: Runtime
+
+The runtime stage creates a lean environment with only what's needed to run and develop games:
+
+```dockerfile
+FROM alpine:latest
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    mesa-gl \
+    alsa-lib \
+    libx11 \
+    mesa-dev \
+    libx11-dev \
+    libxrandr \
+    libxinerama \
+    libxcursor \
+    libxi \
+    xeyes \
+    gcc \
+    g++ \
+    make
+
+COPY --from=builder /usr/local /usr/local
+```
+
+## Key Features
+
+### X11 Display Forwarding
+
+The container uses X11 socket mounting to display graphical applications from inside the container on your host system's screen. This enables you to develop and test games with full graphics support.
+
+### Hardware Acceleration Support
+
+Raylib Container supports GPU hardware acceleration through Direct Rendering Infrastructure (DRI) device mapping, providing optimal performance for game rendering. A software rendering fallback is also available for systems where hardware acceleration is not available.
+
+### Shared Code Directory
+
+Your source code lives in a `user_code` directory on your host system, which is mounted into the container. This means:
+- You can edit code with your favorite IDE on your host system
+- Changes are immediately available inside the container
+- Compiled binaries are accessible from both host and container
+
+### Pre-installed Development Tools
+
+The container comes with:
+- GCC and G++ compilers
+- Raylib library (latest version from GitHub)
+- All required OpenGL and audio dependencies
+- X11 utilities like `xeyes` for testing graphics
+
+## Platform Support
+
+<Note>
+Raylib Container works on Linux and macOS. For macOS users, additional setup with XQuartz is required. See the [MacOS Compatibility Guide](https://github.com/gmaia325/raylib-container/blob/main/MacOSX-Compatibilty.md) for detailed instructions.
+</Note>
+
+## Next Steps
+
+Ready to get started? Check out the [Prerequisites](/prerequisites) to prepare your system, then follow the [Quickstart Guide](/quickstart) to run your first Raylib game in minutes.

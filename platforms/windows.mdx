@@ -1,0 +1,409 @@
+---
+title: 'Windows Setup'
+description: 'Configure the Raylib Container on Windows with Docker Desktop and WSL2'
+---
+
+## Overview
+
+Running graphical Docker containers on Windows requires Docker Desktop with WSL2 backend and an X server for display forwarding. This guide covers the complete setup process for Windows users.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+<Note>
+- Windows 10 version 2004 or higher, or Windows 11
+- WSL2 installed and configured
+- Docker Desktop for Windows installed
+</Note>
+
+## Setup Steps
+
+<Steps>
+  <Step title="Install WSL2">
+    WSL2 (Windows Subsystem for Linux 2) is required for Docker Desktop on Windows.
+
+    Open PowerShell as Administrator and run:
+
+    ```bash
+    wsl --install
+    ```
+
+    This command will:
+    - Enable the WSL feature
+    - Install the Ubuntu distribution (default)
+    - Set WSL2 as the default version
+
+    <Warning>
+    After installation, you **must reboot** your computer for the changes to take effect.
+    </Warning>
+
+    Verify WSL2 is installed:
+
+    ```bash
+    wsl --list --verbose
+    ```
+
+    You should see your Linux distribution listed with version 2.
+  </Step>
+
+  <Step title="Install Docker Desktop">
+    Download and install Docker Desktop for Windows:
+
+    1. Download from [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
+    2. Run the installer
+    3. Ensure "Use WSL 2 instead of Hyper-V" is selected during installation
+    4. Restart your computer when prompted
+
+    After installation, open Docker Desktop and ensure it's running. You should see the Docker icon in your system tray.
+
+    **Configure Docker Desktop:**
+    1. Open Docker Desktop
+    2. Go to Settings → General
+    3. Ensure "Use the WSL 2 based engine" is checked
+    4. Go to Settings → Resources → WSL Integration
+    5. Enable integration with your WSL2 distributions
+  </Step>
+
+  <Step title="Install an X Server">
+    Windows doesn't have a native X server, so you need to install one. We recommend VcXsrv.
+
+    <Accordion title="VcXsrv (Recommended)">
+      **Download and Install:**
+      1. Download VcXsrv from [SourceForge](https://sourceforge.net/projects/vcxsrv/)
+      2. Run the installer with default settings
+
+      **Configure VcXsrv:**
+      1. Launch XLaunch (VcXsrv)
+      2. Select "Multiple windows" → Next
+      3. Select "Start no client" → Next
+      4. **Important:** Check these boxes:
+         - "Clipboard" (optional, for clipboard sharing)
+         - "Primary Selection" (optional)
+         - **"Disable access control"** (required for Docker containers)
+      5. Click "Finish"
+
+      Save the configuration for future use by clicking "Save configuration" before finishing.
+    </Accordion>
+
+    <Accordion title="Xming (Alternative)">
+      **Download and Install:**
+      1. Download Xming from [SourceForge](https://sourceforge.net/projects/xming/)
+      2. Run the installer
+
+      **Launch Xming:**
+      - Run Xming from the Start menu
+      - You should see the Xming icon in your system tray
+      - Configure it to disable access control for Docker
+    </Accordion>
+  </Step>
+
+  <Step title="Configure Display Environment">
+    You need to set the DISPLAY environment variable to point to your Windows X server.
+
+    Open your WSL2 terminal and add this to your `~/.bashrc` or `~/.profile`:
+
+    ```bash
+    # Get Windows host IP address
+    export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
+    ```
+
+    Alternatively, if you're using WSL2 with localhost access (newer versions):
+
+    ```bash
+    export DISPLAY=:0
+    ```
+
+    Apply the changes:
+
+    ```bash
+    source ~/.bashrc
+    ```
+
+    <Info>
+    The DISPLAY variable tells Docker containers where to send graphical output. It points to your Windows X server.
+    </Info>
+  </Step>
+
+  <Step title="Test the Connection">
+    In your WSL2 terminal, verify the DISPLAY variable:
+
+    ```bash
+    echo $DISPLAY
+    ```
+
+    You should see an IP address followed by `:0`, or just `:0` depending on your configuration.
+  </Step>
+</Steps>
+
+## Running the Container
+
+From your WSL2 terminal, run the container with the following command:
+
+```bash
+docker run -it --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    raylib_container
+```
+
+**Parameter Explanation:**
+
+- `-it`: Starts the container in interactive mode with a terminal attached
+- `--rm`: Automatically removes the container when it exits
+- `-e DISPLAY=$DISPLAY`: Passes the DISPLAY variable to the container
+- `-v /tmp/.X11-unix:/tmp/.X11-unix`: Mounts the X11 socket directory
+- `-v ./user_code:/app/user_code`: Mounts your code directory into the container
+- `raylib_container`: The name of the Docker image
+
+## Verifying Graphics Connection
+
+Once inside the container, test the graphics connection:
+
+```bash
+xeyes
+```
+
+A window with eyes that follow the mouse should appear on your Windows desktop. If it does, your setup is working correctly!
+
+<Tip>
+If `xeyes` works, you're ready to run Raylib applications in the container!
+</Tip>
+
+## Hardware Acceleration
+
+<Warning>
+Hardware acceleration (GPU passthrough) is **limited** on Windows with Docker Desktop and WSL2. Most setups will use software rendering.
+</Warning>
+
+### Current Limitations
+
+- Direct GPU passthrough to containers is not fully supported on Windows
+- The `--device /dev/dri:/dev/dri` flag used on Linux won't work
+- Graphics rendering will primarily use CPU (software rendering)
+
+### Improving Performance
+
+While hardware acceleration isn't fully available, you can improve performance:
+
+1. **Allocate more resources to Docker:**
+   - Open Docker Desktop → Settings → Resources
+   - Increase CPU count and Memory allocation
+
+2. **Allocate more resources to WSL2:**
+   
+   Create/edit `%USERPROFILE%\.wslconfig`:
+
+   ```ini
+   [wsl2]
+   memory=4GB
+   processors=4
+   ```
+
+   Restart WSL2:
+   ```bash
+   wsl --shutdown
+   ```
+
+3. **Use lower resolutions during development:**
+   - Test with smaller window sizes
+   - Reduce asset complexity
+
+## Common Workflows
+
+### Starting a Development Session
+
+<Steps>
+  <Step title="Start VcXsrv">
+    Launch XLaunch and configure it (or use your saved configuration).
+  </Step>
+
+  <Step title="Open WSL2 Terminal">
+    Open your WSL2 distribution (e.g., Ubuntu) from the Start menu or Windows Terminal.
+  </Step>
+
+  <Step title="Navigate to Your Project">
+    ```bash
+    cd /mnt/c/Users/YourName/your-project
+    ```
+
+    <Info>
+    Your Windows drives are mounted under `/mnt/` in WSL2. For example, `C:\` is `/mnt/c/`.
+    </Info>
+  </Step>
+
+  <Step title="Run the Container">
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        raylib_container
+    ```
+  </Step>
+</Steps>
+
+### Creating a Launch Script
+
+Create a script to simplify launching:
+
+```bash
+#!/bin/bash
+# save as start-raylib.sh in WSL2
+
+# Ensure DISPLAY is set
+export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
+
+echo "DISPLAY is set to: $DISPLAY"
+echo "Make sure VcXsrv is running on Windows!"
+echo ""
+
+# Run the container
+docker run -it --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    raylib_container
+```
+
+Make it executable:
+
+```bash
+chmod +x start-raylib.sh
+./start-raylib.sh
+```
+
+## Troubleshooting
+
+<Accordion title="Error: Cannot connect to Docker daemon">
+  **Full error:** `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`
+
+  **Solutions:**
+  1. Ensure Docker Desktop is running (check system tray)
+  2. Verify WSL integration is enabled in Docker Desktop settings
+  3. Restart Docker Desktop
+  4. In WSL2, run: `docker ps` to verify connection
+</Accordion>
+
+<Accordion title="Graphics window doesn't appear">
+  **Symptoms:** Container runs but no graphics window appears
+
+  **Solutions:**
+  1. **Verify VcXsrv is running** (check system tray for X icon)
+  2. **Check DISPLAY variable:**
+     ```bash
+     echo $DISPLAY
+     ```
+     Should show an IP address or `:0`
+  3. **Ensure VcXsrv has "Disable access control" checked**
+  4. **Check Windows Firewall:**
+     - Allow VcXsrv through the firewall
+     - Settings → Update & Security → Windows Security → Firewall & network protection
+  5. **Try using localhost:**
+     ```bash
+     export DISPLAY=:0
+     ```
+</Accordion>
+
+<Accordion title="Error: Can't open display">
+  **Full error:** `Error: Can't open display: <IP>:0`
+
+  **Solutions:**
+  1. Restart VcXsrv with access control disabled
+  2. Verify the DISPLAY IP matches your Windows host:
+     ```bash
+     cat /etc/resolv.conf | grep nameserver
+     ```
+  3. Try alternative DISPLAY configurations:
+     ```bash
+     export DISPLAY=:0
+     # or
+     export DISPLAY=localhost:0
+     ```
+  4. Check that VcXsrv is listening on the correct port (6000)
+</Accordion>
+
+<Accordion title="Slow graphics performance">
+  **Cause:** Software rendering without GPU acceleration
+
+  **Solutions:**
+  1. This is expected on Windows with Docker
+  2. Increase Docker Desktop resources (Settings → Resources)
+  3. Edit `.wslconfig` to allocate more memory/CPU to WSL2
+  4. Reduce window size and graphics complexity
+  5. For production testing, use a Linux machine
+</Accordion>
+
+<Accordion title="WSL2 not found / not installed">
+  **Solutions:**
+  1. Ensure Windows version is 2004 or higher:
+     - Press Win+R, type `winver`, check version
+  2. Run in PowerShell (Admin):
+     ```bash
+     wsl --install
+     wsl --set-default-version 2
+     ```
+  3. Verify installation:
+     ```bash
+     wsl --list --verbose
+     ```
+  4. Reboot after installation
+</Accordion>
+
+## File Paths and Volume Mounting
+
+### Accessing Windows Files from WSL2
+
+Your Windows drives are mounted under `/mnt/`:
+
+```bash
+# Windows C:\Users\YourName\Documents
+# In WSL2: /mnt/c/Users/YourName/Documents
+
+cd /mnt/c/Users/YourName/Documents/raylib-project
+```
+
+### Recommended Project Structure
+
+Store your projects in the WSL2 filesystem for better performance:
+
+```bash
+# In WSL2 home directory
+mkdir -p ~/raylib-projects/my-game
+cd ~/raylib-projects/my-game
+mkdir user_code
+```
+
+<Tip>
+Files in the WSL2 filesystem (`~/...`) have better performance than files on Windows drives (`/mnt/c/...`) when used with Docker.
+</Tip>
+
+## Known Limitations
+
+<Warning>
+**Important limitations when using Docker on Windows:**
+
+1. **No GPU acceleration** - Graphics rendering uses CPU only
+2. **Performance overhead** - WSL2 translation layer adds some overhead
+3. **File I/O** - File operations can be slower, especially on `/mnt/` drives
+4. **Network complexity** - DISPLAY forwarding requires X server configuration
+</Warning>
+
+### Workarounds
+
+- For performance-critical development, consider dual-booting Linux or using a Linux VM
+- Use Windows-native tools for final builds and testing
+- Keep development assets minimal to reduce rendering load
+- Consider developing natively on Windows and using the container for CI/CD
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build the Image" icon="hammer" href="/setup/building-image">
+    Learn how to build the Raylib Container image
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first Raylib project
+  </Card>
+</CardGroup>

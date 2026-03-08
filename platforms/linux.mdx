@@ -1,0 +1,234 @@
+---
+title: 'Linux Setup'
+description: 'Configure the Raylib Container on Linux with X11/Wayland display support and hardware acceleration'
+---
+
+## Overview
+
+Linux provides native support for Docker containers with graphical output through X11 or Wayland. This guide covers the complete setup process for running the Raylib Container on Linux systems.
+
+## Prerequisites
+
+Before using the container, you need to configure your host system to allow graphical applications from the container to run and manage Docker without `sudo`.
+
+<Note>
+This guide assumes you have Docker already installed on your Linux system. If not, install it from your distribution's package manager or from the [official Docker website](https://docs.docker.com/engine/install/).
+</Note>
+
+## Setup Steps
+
+<Steps>
+  <Step title="Enable Display Access">
+    Allow local Docker containers to connect to your graphics server (X11 or Wayland via XWayland):
+
+    ```bash
+    # Allow connections from Docker
+    xhost +local:docker
+    ```
+
+    <Warning>
+    This command usually needs to be run in each new graphical session or after rebooting the system. You might want to add it to your startup scripts (like `.profile`, `.xinitrc`, etc.).
+    </Warning>
+
+    To make this persistent, add the command to your shell profile:
+
+    ```bash
+    # Add to ~/.profile or ~/.bashrc
+    echo 'xhost +local:docker' >> ~/.profile
+    ```
+  </Step>
+
+  <Step title="Add User to Docker Group">
+    Adding your user to the `docker` group removes the need to use `sudo` for Docker commands:
+
+    ```bash
+    sudo usermod -aG docker $USER
+    ```
+
+    <Info>
+    Depending on your Linux distribution configuration, there might be situations where using `sudo` is still necessary for some tasks, even if the user is a member of the `docker` group (for example, when interacting with the graphical interface).
+    </Info>
+
+    <Warning>
+    After running this command, you **must log out and log back in** or **reboot the system** for the group change to take effect.
+    </Warning>
+
+    To verify the group membership:
+
+    ```bash
+    groups $USER
+    ```
+  </Step>
+
+  <Step title="Verify Docker Access">
+    After logging back in, verify you can run Docker without `sudo`:
+
+    ```bash
+    docker ps
+    ```
+
+    If this works without permission errors, you're ready to proceed.
+  </Step>
+</Steps>
+
+## Running the Container
+
+### With Hardware Acceleration (Recommended)
+
+This option uses your host system's GPU for better performance:
+
+```bash
+docker run -it --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    --device /dev/dri:/dev/dri \
+    raylib_container
+```
+
+**Parameter Explanation:**
+
+- `-it`: Starts the container in interactive mode with a terminal attached
+- `--rm`: Automatically removes the container when it exits
+- `-e DISPLAY=$DISPLAY`: Passes the host's `DISPLAY` environment variable to the container
+- `-v /tmp/.X11-unix:/tmp/.X11-unix`: Mounts the host's X11 socket for graphical communication
+- `-v ./user_code:/app/user_code`: Mounts your code directory into the container
+- `--device /dev/dri:/dev/dri`: Maps the Direct Rendering Infrastructure devices for GPU access
+
+### With Software Rendering (Fallback)
+
+Use this option if hardware acceleration doesn't work. Performance will be lower:
+
+```bash
+docker run -it --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    -e LIBGL_ALWAYS_SOFTWARE=1 \
+    raylib_container
+```
+
+<Tip>
+If you see errors related to `dri`, `glx`, `mesa`, or graphics drivers when using hardware acceleration, try the software rendering option instead.
+</Tip>
+
+## Hardware Acceleration on Linux
+
+### Understanding GPU Access
+
+The `/dev/dri` device provides Direct Rendering Infrastructure access, allowing containers to use your GPU:
+
+```bash
+# List available DRI devices
+ls -la /dev/dri/
+```
+
+You should see devices like `card0`, `renderD128`, etc.
+
+### Common GPU Drivers
+
+<Accordion title="Intel Graphics">
+  Modern Intel integrated graphics use the `iris` driver (newer) or `i965` driver (older).
+  
+  The container should work out-of-the-box with Intel graphics when using the `--device /dev/dri:/dev/dri` flag.
+</Accordion>
+
+<Accordion title="AMD Graphics">
+  AMD graphics use the `radeonsi` or `amdgpu` driver.
+  
+  Ensure your host system has the Mesa drivers installed. The container will use them through the mounted DRI devices.
+</Accordion>
+
+<Accordion title="NVIDIA Graphics">
+  NVIDIA requires additional setup with the NVIDIA Container Toolkit.
+  
+  If hardware acceleration fails with NVIDIA, fall back to software rendering with `-e LIBGL_ALWAYS_SOFTWARE=1`.
+</Accordion>
+
+## Verifying Graphics Connection
+
+Once inside the container, test the graphics connection:
+
+```bash
+xeyes
+```
+
+A window with eyes that follow the mouse should appear. You can close it by right-clicking or closing the window normally.
+
+<Tip>
+If `xeyes` works, your display forwarding is configured correctly and you can run Raylib applications!
+</Tip>
+
+## Reverting Configuration
+
+If you need to undo the changes made during setup:
+
+<Steps>
+  <Step title="Revoke Display Access">
+    ```bash
+    xhost -local:docker
+    ```
+  </Step>
+
+  <Step title="Remove User from Docker Group">
+    ```bash
+    sudo gpasswd -d $USER docker
+    ```
+
+    Remember to log out and log in or reboot afterwards.
+  </Step>
+</Steps>
+
+## Security Considerations
+
+<Warning>
+**Do not change the Docker socket (`/var/run/docker.sock`) permissions to `666`!** This is a severe security risk. The correct and secure way to avoid `sudo` is to add your user to the `docker` group.
+</Warning>
+
+If you accidentally changed the permissions, restore them:
+
+```bash
+# Only if you incorrectly changed permissions before!
+sudo chmod 660 /var/run/docker.sock
+sudo chown root:docker /var/run/docker.sock
+```
+
+## Troubleshooting
+
+<Accordion title="Error: Cannot connect to the Docker daemon">
+  **Full error:** `docker: Cannot connect to the Docker daemon... Permission denied.`
+
+  **Solution:** You likely haven't added your user to the `docker` group or didn't log out/log in after adding them. Try using `sudo docker ...` or follow the user group setup step above.
+</Accordion>
+
+<Accordion title="Window doesn't appear / cannot open display">
+  **Full error:** `Error: cannot open display: :0`
+
+  **Solution:** 
+  - Check that you ran `xhost +local:docker` in the current host graphical session
+  - Verify the `DISPLAY` variable is being passed correctly (`-e DISPLAY=$DISPLAY`)
+  - Ensure you're running from a graphical session, not SSH or TTY
+</Accordion>
+
+<Accordion title="MESA errors / Failed to query drm device">
+  **Full error:** `MESA: error: Failed to query drm device.`, `glx: failed to create dri3 screen`, `failed to load driver: iris/radeon/etc.`
+
+  **Solution:** Hardware acceleration isn't working. Ensure the `--device /dev/dri:/dev/dri` flag was used. If it still fails, try software rendering with `-e LIBGL_ALWAYS_SOFTWARE=1`.
+</Accordion>
+
+<Accordion title="Error: invalid reference format">
+  **Full error:** `docker: invalid reference format`
+
+  **Solution:** Check if the image name (`raylib_container`) is spelled correctly in the `docker run` command and that the image actually exists. Verify with `docker images`.
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build the Image" icon="hammer" href="/setup/building-image">
+    Learn how to build the Raylib Container image
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first Raylib project
+  </Card>
+</CardGroup>

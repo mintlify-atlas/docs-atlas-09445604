@@ -1,0 +1,301 @@
+---
+title: 'Compiling Projects'
+description: 'Learn how to compile Raylib C programs with GCC inside the container'
+---
+
+Compiling Raylib projects requires linking against multiple system libraries. This guide covers the complete compilation process, from simple single-file games to complex multi-file projects.
+
+## Basic GCC Compilation Command
+
+The standard command to compile a Raylib program looks like this:
+
+```bash
+gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+Let's break down each component:
+
+<Accordion title="Compilation Flags Explained">
+  - `gcc` - The GNU C Compiler
+  - `my_game.c` - Your source file(s)
+  - `-o my_game` - Output executable name
+  - `-lraylib` - Link against the Raylib library
+  - `-lGL` - OpenGL library for graphics rendering
+  - `-lm` - Math library for mathematical functions
+  - `-lpthread` - POSIX threads library for multithreading
+  - `-ldl` - Dynamic linking library
+  - `-lrt` - Real-time extensions library
+  - `-lX11` - X Window System library for display
+</Accordion>
+
+<Note>
+The order of library flags (`-l...`) matters in GCC. Libraries should be listed after your source files and in dependency order. The command above uses the correct ordering for Raylib projects.
+</Note>
+
+## Complete Compilation Workflow
+
+Follow these steps to compile and run your Raylib game:
+
+<Steps>
+  <Step title="Navigate to your code directory">
+    Make sure you're in the directory containing your source files:
+    
+    ```bash
+    cd /app/user_code
+    ```
+  </Step>
+
+  <Step title="Compile your program">
+    Run the GCC command with all required library flags:
+    
+    ```bash
+    gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+    ```
+    
+    If compilation succeeds, you'll see no output and return to the shell prompt.
+  </Step>
+
+  <Step title="Run the compiled executable">
+    Execute your program:
+    
+    ```bash
+    ./my_game
+    ```
+    
+    Your Raylib window should appear with your game running!
+  </Step>
+</Steps>
+
+## Compiling Multi-File Projects
+
+For larger games split across multiple source files, you have two main approaches:
+
+### Method 1: Compile All Files Together
+
+List all `.c` files in a single GCC command:
+
+```bash
+gcc main.c player.c enemy.c renderer.c -o game \
+    -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+This compiles and links everything in one step.
+
+### Method 2: Separate Compilation and Linking
+
+Compile each file to an object file first, then link them:
+
+```bash
+# Compile each source file to object file
+gcc -c main.c -o main.o
+gcc -c player.c -o player.o
+gcc -c enemy.c -o enemy.o
+gcc -c renderer.c -o renderer.o
+
+# Link all object files together
+gcc main.o player.o enemy.o renderer.o -o game \
+    -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+This approach is more efficient for large projects since you only need to recompile files that changed.
+
+### Method 3: Using a Makefile
+
+Create a `Makefile` to automate the build process:
+
+```makefile
+CC = gcc
+CFLAGS = -Wall -Wextra -O2
+LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+
+SRCS = main.c player.c enemy.c renderer.c
+OBJS = $(SRCS:.c=.o)
+TARGET = game
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(OBJS) $(TARGET)
+
+.PHONY: all clean
+```
+
+Then simply run:
+
+```bash
+make        # Build the project
+./game      # Run it
+make clean  # Clean up object files and executable
+```
+
+<Tip>
+Using a Makefile is the recommended approach for any project with more than 2-3 source files. It tracks dependencies and only rebuilds what's necessary.
+</Tip>
+
+## Running Compiled Executables
+
+Once compilation succeeds, run your game with:
+
+```bash
+./my_game
+```
+
+<Info>
+The `./` prefix tells the shell to execute the file in the current directory. Without it, the shell would search your `PATH` and likely not find your game.
+</Info>
+
+### Running Games in Subdirectories
+
+If your project is organized in folders:
+
+```bash
+# Compile in project directory
+cd /app/user_code/my_project
+gcc main.c -o game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+
+# Run from the same directory
+./game
+
+# Or run from parent directory
+cd ..
+./my_project/game
+```
+
+## Common Compilation Errors and Fixes
+
+### Error: `undefined reference to 'InitWindow'`
+
+**Cause**: Missing `-lraylib` flag or library not found.
+
+**Fix**: Ensure `-lraylib` is included in your compilation command:
+
+```bash
+gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+### Error: `undefined reference to 'glXCreateContext'`
+
+**Cause**: Missing OpenGL libraries.
+
+**Fix**: Add `-lGL` and `-lX11` flags:
+
+```bash
+gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+### Error: `undefined reference to 'sin'` or `'cos'`
+
+**Cause**: Missing math library.
+
+**Fix**: Add the `-lm` flag:
+
+```bash
+gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+### Error: `my_game.c: No such file or directory`
+
+**Cause**: File doesn't exist or you're in the wrong directory.
+
+**Fix**: Verify the file exists and you're in the correct directory:
+
+```bash
+pwd          # Check current directory
+ls *.c       # List C source files
+cd /app/user_code  # Navigate to correct location
+```
+
+### Error: `fatal error: raylib.h: No such file or directory`
+
+**Cause**: Raylib headers not found (shouldn't happen in the container).
+
+**Fix**: This indicates an issue with the Raylib installation. The container should have Raylib properly installed at `/usr/local`. You can verify with:
+
+```bash
+ls /usr/local/include/raylib.h
+ls /usr/local/lib/libraylib.*
+```
+
+If these files are missing, the container image may need to be rebuilt.
+
+<Warning>
+If you see this error, try rebuilding the Docker image with `docker build -t raylib_container .` on your host system.
+</Warning>
+
+### Warning: `implicit declaration of function`
+
+**Cause**: Missing `#include "raylib.h"` at the top of your source file.
+
+**Fix**: Add the include at the beginning of your `.c` file:
+
+```c
+#include "raylib.h"
+
+int main(void) {
+    // Your code here
+}
+```
+
+## Compilation Optimization Flags
+
+For better performance, add optimization flags:
+
+<CodeGroup>
+```bash Debug Build (with debugging symbols)
+gcc my_game.c -o my_game -g -Wall -Wextra \
+    -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+```bash Release Build (optimized for speed)
+gcc my_game.c -o my_game -O2 -DNDEBUG \
+    -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+```bash Maximum Optimization
+gcc my_game.c -o my_game -O3 -march=native -DNDEBUG \
+    -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+</CodeGroup>
+
+**Flag explanations:**
+- `-g` - Include debug symbols for debugging with GDB
+- `-Wall -Wextra` - Enable all warnings (helps catch bugs)
+- `-O2` - Level 2 optimization (good balance)
+- `-O3` - Maximum optimization (best performance)
+- `-march=native` - Optimize for your specific CPU
+- `-DNDEBUG` - Disable assert() statements
+
+<Note>
+Use debug builds during development for better error messages. Switch to release builds when distributing your game for maximum performance.
+</Note>
+
+## Verifying Compilation Success
+
+After compilation, verify your executable was created:
+
+```bash
+# Check if executable exists
+ls -lh my_game
+
+# Verify it's executable (should have 'x' permission)
+# Output should show: -rwxr-xr-x
+
+# Check file type
+file my_game
+# Output: my_game: ELF 64-bit LSB executable, x86-64...
+```
+
+If you see the executable file listed, compilation succeeded!
+
+## Next Steps
+
+Now that you know how to compile Raylib projects:
+
+- [Walk through the complete example game](/development/example-game)
+- [Learn about the container environment](/development/working-in-container)

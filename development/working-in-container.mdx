@@ -1,0 +1,223 @@
+---
+title: 'Working in the Container'
+description: 'Navigate and organize your Raylib projects inside the Docker container'
+---
+
+The Raylib Container provides a complete development environment with all necessary tools and libraries pre-installed. Understanding how to work efficiently inside the container is key to a smooth development experience.
+
+## Container Filesystem Structure
+
+When you start the container, your working directory is automatically set to `/app/user_code`. This is where all your game development happens.
+
+```bash
+/app/
+├── user_code/          # Your project files (volume-mounted)
+│   ├── my_game.c
+│   ├── my_game         # Compiled executables
+│   └── assets/         # Game assets (textures, sounds, etc.)
+└── raylib-quickstart/  # Optional quickstart examples
+```
+
+<Note>
+The `/app/user_code` directory is volume-mounted from your host system's `./user_code` folder. Any changes you make inside the container are immediately reflected on your host, and vice versa.
+</Note>
+
+## Volume Mounting and File Synchronization
+
+The container uses Docker volumes to keep your code synchronized between the host and container:
+
+```bash
+docker run -it --rm \
+    -v ./user_code:/app/user_code \
+    # ... other flags
+```
+
+This mounting strategy provides several benefits:
+
+- **Persistence**: Your code survives when the container exits (the `--rm` flag removes the container but not the volume)
+- **Real-time sync**: Edit files on your host with your favorite IDE, compile inside the container
+- **No data loss**: Since files live on the host, you never lose work
+- **Easy backup**: Your source code is on your host filesystem for version control
+
+<Info>
+You can edit your source files using any editor on your host machine (VS Code, Vim, etc.) and the changes will instantly appear inside the container for compilation.
+</Info>
+
+## File Organization Best Practices
+
+Organize your Raylib projects effectively within the `user_code` directory:
+
+### Single File Projects
+
+For simple games or examples:
+
+```
+user_code/
+└── my_game.c
+```
+
+### Multi-File Projects
+
+For larger games with multiple modules:
+
+```
+user_code/
+├── main.c
+├── player.c
+├── player.h
+├── enemy.c
+├── enemy.h
+├── assets/
+│   ├── textures/
+│   ├── sounds/
+│   └── fonts/
+└── Makefile
+```
+
+### Multiple Projects
+
+Keep separate projects in subdirectories:
+
+```
+user_code/
+├── pong/
+│   └── pong.c
+├── platformer/
+│   ├── main.c
+│   └── assets/
+└── shooter/
+    └── game.c
+```
+
+<Tip>
+Compiled executables are created in the same directory as your source files. Consider adding `*.o` and compiled binaries to your `.gitignore` if using version control.
+</Tip>
+
+## Using the Container Terminal
+
+Once inside the container, you have access to a full Alpine Linux shell environment:
+
+### Navigating Directories
+
+```bash
+# You start in /app/user_code by default
+pwd
+# Output: /app/user_code
+
+# List your source files
+ls -la
+
+# Navigate to subdirectories
+cd my_project/
+
+# Return to user_code
+cd /app/user_code
+```
+
+### Viewing and Editing Files
+
+While we recommend editing on the host, you can view files inside the container:
+
+```bash
+# View file contents
+cat my_game.c
+
+# Quick edits with vi (if needed)
+vi my_game.c
+```
+
+### Managing Files
+
+```bash
+# Create new directories
+mkdir assets
+mkdir assets/textures
+
+# Copy files
+cp my_game.c my_game_backup.c
+
+# Remove files
+rm old_executable
+```
+
+## Available Development Tools
+
+The container comes with essential development tools pre-installed:
+
+### GCC Compiler
+
+```bash
+# Check GCC version
+gcc --version
+
+# Compile C programs
+gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+### G++ Compiler
+
+For C++ projects:
+
+```bash
+# Check G++ version
+g++ --version
+
+# Compile C++ programs
+g++ my_game.cpp -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+### Make Build System
+
+```bash
+# Check make version
+make --version
+
+# Build with Makefile
+make
+make clean
+```
+
+### Git Version Control
+
+```bash
+# Initialize repository
+git init
+git add .
+git commit -m "Initial commit"
+
+# Check status
+git status
+```
+
+<Note>
+The container is based on Alpine Linux, which uses the `apk` package manager. While GCC, Make, and Git are pre-installed, you can install additional tools with `apk add package-name` if needed during your session.
+</Note>
+
+## Graphics Testing
+
+Verify your graphics connection is working before starting development:
+
+```bash
+# Test X11 connection
+xeyes
+```
+
+If a window with eyes that follow your mouse appears, your graphics setup is correct and you're ready to develop Raylib games.
+
+<Warning>
+If `xeyes` doesn't work, you'll need to troubleshoot your X11 setup on the host before Raylib graphics will function. Make sure you've run `xhost +local:docker` on your host system.
+</Warning>
+
+## Working Directory Best Practices
+
+1. **Always work in `/app/user_code`**: This ensures your files are preserved and synced with the host
+2. **Use relative paths**: Reference assets and files relative to your project directory
+3. **Keep executables with source**: Run compiled programs from the same directory they were built in
+4. **Test frequently**: Compile and run often to catch errors early
+
+## Next Steps
+
+Now that you understand the container environment, learn how to:
+
+- [Compile your Raylib projects](/development/compiling-projects)
+- [Build and run the example game](/development/example-game)

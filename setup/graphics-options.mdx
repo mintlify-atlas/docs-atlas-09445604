@@ -1,0 +1,380 @@
+---
+title: Graphics Options
+description: Configure graphics rendering for Raylib Container using hardware acceleration or software fallback, with troubleshooting for common issues
+---
+
+The Raylib Container supports two graphics rendering modes: hardware-accelerated rendering using your GPU, and software rendering using your CPU. This guide explains when and how to use each option.
+
+## Overview
+
+Graphics rendering options:
+
+<CardGroup cols={2}>
+  <Card title="Hardware Acceleration" icon="microchip">
+    Uses GPU via DRI (Direct Rendering Infrastructure) for maximum performance
+  </Card>
+  <Card title="Software Rendering" icon="server">
+    Uses CPU via Mesa software renderer as a compatibility fallback
+  </Card>
+</CardGroup>
+
+## Hardware Acceleration (Recommended)
+
+Hardware acceleration leverages your system's GPU for graphics rendering, providing the best performance for games and graphical applications.
+
+### Enabling Hardware Acceleration
+
+Use the `--device` flag to map DRI devices into the container:
+
+```bash
+docker run -it --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    --device /dev/dri:/dev/dri \
+    raylib_container
+```
+
+### How It Works
+
+The `--device /dev/dri:/dev/dri` flag maps Direct Rendering Infrastructure devices from your host system into the container:
+
+<Accordion title="DRI Device Mapping Details">
+**Host devices mapped:**
+- `/dev/dri/card0`: Primary GPU device node
+- `/dev/dri/card1`: Secondary GPU (if present)
+- `/dev/dri/renderD128`: Primary GPU render node
+- `/dev/dri/renderD129`: Secondary GPU render node (if present)
+
+**How the mapping works:**
+- `--device <host-device>:<container-device>`
+- Creates device nodes inside the container
+- Grants the container direct access to GPU hardware
+- Allows Mesa drivers to use hardware-accelerated OpenGL
+</Accordion>
+
+### When to Use Hardware Acceleration
+
+Use hardware acceleration when:
+
+<Steps>
+  <Step title="Proper GPU Drivers Installed">
+    Your host system has working graphics drivers (Mesa, NVIDIA, AMD)
+  </Step>
+  
+  <Step title="Performance Matters">
+    You're developing games that require:
+    - High frame rates (60+ FPS)
+    - Complex 3D rendering
+    - Shader effects
+    - Large textures
+  </Step>
+  
+  <Step title="System Supports DRI">
+    Your system has `/dev/dri` devices:
+    ```bash
+    ls -la /dev/dri
+    ```
+    Should show `card0`, `renderD128`, etc.
+  </Step>
+</Steps>
+
+### Performance Characteristics
+
+<Info>
+**Expected performance with hardware acceleration:**
+- Simple 2D games: 200-1000+ FPS
+- Complex 2D games: 120-300 FPS  
+- 3D games: 60-120+ FPS (depending on complexity)
+- GPU usage: 10-80% depending on workload
+- CPU usage: Low (5-20%)
+</Info>
+
+## Software Rendering (Fallback)
+
+Software rendering uses the CPU to perform graphics operations, providing compatibility when hardware acceleration isn't available or isn't working.
+
+### Enabling Software Rendering
+
+Set the `LIBGL_ALWAYS_SOFTWARE` environment variable:
+
+```bash
+docker run -it --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    -e LIBGL_ALWAYS_SOFTWARE=1 \
+    raylib_container
+```
+
+<Note>
+Notice that the `--device /dev/dri:/dev/dri` flag is **not used** in software rendering mode.
+</Note>
+
+### How It Works
+
+The `LIBGL_ALWAYS_SOFTWARE=1` environment variable:
+
+<Accordion title="Software Rendering Technical Details">
+**What it does:**
+- Forces Mesa to use `llvmpipe` or `softpipe` software renderers
+- Bypasses GPU hardware entirely
+- Implements OpenGL in software using CPU
+- Runs on any system regardless of GPU support
+
+**Mesa software renderer:**
+- `llvmpipe`: LLVM-based software rasterizer (faster, preferred)
+- `softpipe`: Reference software rasterizer (slower, but more compatible)
+- Full OpenGL 4.5+ support
+- Multithreaded to use multiple CPU cores
+</Accordion>
+
+### When to Use Software Rendering
+
+Use software rendering when:
+
+<CardGroup cols={2}>
+  <Card title="Hardware Issues" icon="triangle-exclamation">
+    DRI/Mesa errors occur
+    
+    GPU drivers not properly configured
+    
+    Container can't access GPU
+  </Card>
+  
+  <Card title="Compatibility Testing" icon="vial">
+    Testing on various systems
+    
+    CI/CD pipelines without GPU
+    
+    Headless servers
+  </Card>
+  
+  <Card title="Development" icon="laptop-code">
+    Simple 2D prototyping
+    
+    Non-performance-critical work
+    
+    Learning Raylib basics
+  </Card>
+  
+  <Card title="Troubleshooting" icon="wrench">
+    Diagnosing graphics issues
+    
+    Verifying code logic
+    
+    Isolating GPU problems
+  </Card>
+</CardGroup>
+
+### Performance Characteristics
+
+<Warning>
+**Expected performance with software rendering:**
+- Simple 2D games: 30-60 FPS
+- Complex 2D games: 15-30 FPS
+- 3D games: 5-15 FPS (often unplayable)
+- GPU usage: 0%
+- CPU usage: High (40-100% of available cores)
+</Warning>
+
+Software rendering is 10-50x slower than hardware acceleration, depending on the workload.
+
+## Performance Comparison
+
+Typical performance difference for a simple Raylib game:
+
+| Rendering Mode | FPS | CPU Usage | GPU Usage | Latency |
+|----------------|-----|-----------|-----------|----------|
+| Hardware (GPU) | 300+ | 10-15% | 30-50% | Less than 5ms |
+| Software (CPU) | 45-60 | 80-100% | 0% | 15-20ms |
+
+<Tip>
+For game development, always start with hardware acceleration. Only switch to software rendering if you encounter errors.
+</Tip>
+
+## Troubleshooting Graphics Issues
+
+### Common Error Messages
+
+<Accordion title="Error: 'MESA: error: Failed to query drm device'">
+**Full error:**
+```
+MESA: error: Failed to query drm device.
+libEGL warning: DRI2: failed to authenticate
+```
+
+**Cause:** Container can't access DRI devices or GPU drivers aren't loaded.
+
+**Solutions:**
+1. Verify DRI devices exist on host:
+   ```bash
+   ls -la /dev/dri
+   ```
+
+2. Check if `--device /dev/dri:/dev/dri` flag is used
+
+3. Switch to software rendering:
+   ```bash
+   docker run -it --rm \
+       -e DISPLAY=$DISPLAY \
+       -v /tmp/.X11-unix:/tmp/.X11-unix \
+       -v ./user_code:/app/user_code \
+       -e LIBGL_ALWAYS_SOFTWARE=1 \
+       raylib_container
+   ```
+</Accordion>
+
+<Accordion title="Error: 'glx: failed to create dri3 screen'">
+**Full error:**
+```
+glx: failed to create dri3 screen
+failed to load driver: iris (or radeon, nouveau, etc.)
+```
+
+**Cause:** DRI3 protocol issues or driver mismatch between host and container.
+
+**Solutions:**
+1. Use software rendering (see above)
+
+2. Check Mesa version compatibility:
+   ```bash
+   # On host
+   glxinfo | grep "OpenGL version"
+   
+   # Inside container
+   glxinfo | grep "OpenGL version"
+   ```
+
+3. Ensure X11 socket is properly mounted:
+   ```bash
+   -v /tmp/.X11-unix:/tmp/.X11-unix
+   ```
+</Accordion>
+
+<Accordion title="Error: 'Failed to open DRM device'">
+**Cause:** Permissions issue accessing DRI devices.
+
+**Solutions:**
+1. Check device permissions on host:
+   ```bash
+   ls -la /dev/dri
+   ```
+   Devices should be readable by your user or group `video`/`render`.
+
+2. Add your user to the appropriate groups:
+   ```bash
+   sudo usermod -aG video $USER
+   sudo usermod -aG render $USER
+   ```
+   Log out and back in for changes to take effect.
+
+3. Use software rendering as fallback
+</Accordion>
+
+<Accordion title="Poor Performance with Hardware Acceleration">
+**Symptoms:** Low FPS despite using hardware acceleration.
+
+**Diagnostics:**
+1. Check if GPU is actually being used:
+   ```bash
+   # Inside container
+   glxinfo | grep "OpenGL renderer"
+   ```
+   Should show your GPU name, not "llvmpipe" or "softpipe".
+
+2. Verify DRI3 is being used:
+   ```bash
+   LIBGL_DEBUG=verbose glxgears 2>&1 | grep -i dri
+   ```
+
+**Solutions:**
+- If showing software renderer, hardware acceleration isn't working
+- Follow troubleshooting steps above
+- Check host GPU drivers are up to date
+</Accordion>
+
+### Diagnostic Commands
+
+Run these inside the container to diagnose graphics issues:
+
+```bash
+# Check OpenGL renderer in use
+glxinfo | grep "OpenGL renderer"
+# Hardware: Shows GPU name (e.g., "Mesa Intel(R) HD Graphics")
+# Software: Shows "llvmpipe" or "softpipe"
+
+# Verbose OpenGL debugging
+LIBGL_DEBUG=verbose glxgears
+
+# Test basic graphics
+xeyes
+
+# Check available DRI devices
+ls -la /dev/dri
+
+# Mesa version information
+glxinfo | grep -i mesa
+```
+
+## Choosing the Right Option
+
+<Steps>
+  <Step title="Start with Hardware Acceleration">
+    Always try hardware acceleration first:
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        --device /dev/dri:/dev/dri \
+        raylib_container
+    ```
+  </Step>
+  
+  <Step title="Test Graphics Connection">
+    Inside container, verify graphics work:
+    ```bash
+    xeyes
+    glxgears
+    ```
+  </Step>
+  
+  <Step title="If Errors Occur, Switch to Software">
+    If you see DRI/Mesa/GLX errors:
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        -e LIBGL_ALWAYS_SOFTWARE=1 \
+        raylib_container
+    ```
+  </Step>
+  
+  <Step title="Develop Accordingly">
+    - Hardware mode: Develop normally with full performance
+    - Software mode: Prototype and test, optimize for lower FPS
+  </Step>
+</Steps>
+
+## Best Practices
+
+<Card title="Development Workflow" icon="lightbulb">
+1. **Development:** Use hardware acceleration for real-time feedback
+2. **Testing:** Test with both modes to ensure compatibility
+3. **Performance profiling:** Use hardware mode to identify bottlenecks
+4. **CI/CD:** Use software mode for automated testing without GPU
+5. **Deployment:** Document which mode your game requires
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Compiling Code" icon="code" href="/development/compiling-projects">
+    Learn how to compile and run Raylib programs
+  </Card>
+  <Card title="Example Projects" icon="rocket" href="/development/example-game">
+    Try sample games and applications
+  </Card>
+</CardGroup>

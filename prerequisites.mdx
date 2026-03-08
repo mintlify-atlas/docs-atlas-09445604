@@ -1,0 +1,168 @@
+---
+title: Prerequisites
+description: System requirements and setup steps before using Raylib Container
+---
+
+Before using Raylib Container, you need to configure your host system to allow graphical applications from the container to run and to manage Docker without `sudo`.
+
+<Warning>
+If you're using macOS, follow the [MacOS Compatibility Guide](https://github.com/gmaia325/raylib-container/blob/main/MacOSX-Compatibilty.md) for specific instructions on setting up XQuartz instead of the X11 configuration below.
+</Warning>
+
+## Docker Installation
+
+You must have Docker installed on your system. If you don't have Docker yet:
+
+<Steps>
+  <Step title="Download Docker">
+    Visit the [official Docker website](https://www.docker.com/get-started) and download Docker Desktop for your operating system.
+  </Step>
+  
+  <Step title="Install Docker">
+    Follow the installation wizard for your platform. On Linux, you can also install Docker Engine directly through your package manager.
+  </Step>
+  
+  <Step title="Verify Installation">
+    Open a terminal and verify Docker is installed:
+    
+    ```bash
+    docker --version
+    ```
+  </Step>
+</Steps>
+
+## X11 Display Access (Linux)
+
+<Info>
+This section applies to Linux users. macOS users should install and configure XQuartz instead.
+</Info>
+
+Graphical applications inside Docker containers need permission to connect to your display server (X11 or Wayland via XWayland).
+
+<Steps>
+  <Step title="Enable Display Access">
+    Allow local Docker containers to connect to your graphics server:
+    
+    ```bash
+    xhost +local:docker
+    ```
+    
+    <Note>
+    This command usually needs to be run in each new graphical session or after rebooting the system. Consider adding it to your startup scripts like `.profile`, `.xinitrc`, or `.bash_profile`.
+    </Note>
+  </Step>
+  
+  <Step title="Verify DISPLAY Variable">
+    Check that your DISPLAY environment variable is set:
+    
+    ```bash
+    echo $DISPLAY
+    ```
+    
+    You should see output like `:0`, `:1`, or `:0.0`.
+  </Step>
+</Steps>
+
+## Docker Group Configuration (Recommended)
+
+Adding your user to the `docker` group removes the need to use `sudo` for Docker commands.
+
+<Steps>
+  <Step title="Add User to Docker Group">
+    Run the following command to add your user to the docker group:
+    
+    ```bash
+    sudo usermod -aG docker $USER
+    ```
+  </Step>
+  
+  <Step title="Log Out and Back In">
+    <Warning>
+    After running this command, you **must log out and log back in** or **reboot the system** for the group change to take effect.
+    </Warning>
+    
+    The simplest way is to completely log out of your desktop session and log back in. Alternatively, reboot your system:
+    
+    ```bash
+    sudo reboot
+    ```
+  </Step>
+  
+  <Step title="Verify Group Membership">
+    After logging back in, verify you're in the docker group:
+    
+    ```bash
+    groups
+    ```
+    
+    You should see `docker` in the list of groups.
+  </Step>
+  
+  <Step title="Test Docker Access">
+    Try running a Docker command without sudo:
+    
+    ```bash
+    docker ps
+    ```
+    
+    If this works without asking for a password, you're all set!
+  </Step>
+</Steps>
+
+<Note>
+Depending on your Linux distribution's specific configuration, there might be rare situations where `sudo` is still necessary for certain tasks (like opening the display from within a container), even with docker group membership.
+</Note>
+
+## Graphics Hardware Requirements
+
+For optimal performance, Raylib Container can use your GPU through hardware acceleration:
+
+- **Linux**: The container maps `/dev/dri` devices for Direct Rendering Infrastructure (DRI) access
+- **Fallback**: Software rendering is available if hardware acceleration doesn't work
+
+<Accordion title="Verifying Graphics Device Access">
+  Check if your system has DRI devices available:
+  
+  ```bash
+  ls -la /dev/dri
+  ```
+  
+  You should see devices like `card0`, `renderD128`, etc. If you don't see these, you'll need to use software rendering mode.
+</Accordion>
+
+## Security Considerations
+
+<Warning>
+**Do not change the Docker socket permissions to `666`!** This is a severe security risk. The correct and secure way to avoid `sudo` is to add your user to the `docker` group as shown above.
+</Warning>
+
+If you accidentally changed the socket permissions, restore them:
+
+```bash
+sudo chmod 660 /var/run/docker.sock
+sudo chown root:docker /var/run/docker.sock
+```
+
+The default permissions are usually `660` with owner `root` and group `docker`.
+
+## Reverting Configuration Changes
+
+If you need to undo the changes made during setup:
+
+<Accordion title="Revoke Display Access">
+  ```bash
+  xhost -local:docker
+  ```
+</Accordion>
+
+<Accordion title="Remove User from Docker Group">
+  ```bash
+  sudo gpasswd -d $USER docker
+  ```
+  
+  Remember to log out/log in or reboot afterwards for this to take effect.
+</Accordion>
+
+## Next Steps
+
+With prerequisites complete, you're ready to build and run the container. Continue to the [Quickstart Guide](/quickstart) to compile and run your first Raylib game.

@@ -1,0 +1,283 @@
+---
+title: 'Reverting Changes'
+description: 'How to undo host system configuration changes made for the container'
+---
+
+If you want to undo the host system configuration changes made during the Raylib Container setup, follow the procedures below.
+
+## Overview
+
+During the initial setup, you made two main changes to your host system:
+
+1. Granted Docker containers access to your display server with `xhost`
+2. Added your user to the `docker` group to run Docker without `sudo`
+
+This guide shows you how to revert both changes completely.
+
+## Revoking Display Access
+
+<Steps>
+  <Step title="Revoke xhost Permissions">
+    Remove Docker's access to your display server:
+    ```bash
+    xhost -local:docker
+    ```
+    
+    This immediately revokes the permission granted by `xhost +local:docker`.
+  </Step>
+
+  <Step title="Remove from Startup Scripts">
+    If you added `xhost +local:docker` to any startup scripts, remove those lines:
+    
+    <CodeGroup>
+    ```bash ~/.profile
+    # Remove this line from ~/.profile:
+    xhost +local:docker
+    ```
+    
+    ```bash ~/.xinitrc
+    # Remove this line from ~/.xinitrc:
+    xhost +local:docker
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Verify Revocation">
+    You can verify the change by listing current xhost permissions:
+    ```bash
+    xhost
+    ```
+    
+    Docker should no longer appear in the access control list.
+  </Step>
+</Steps>
+
+<Info>
+After revoking display access, containers will no longer be able to open graphical windows on your display.
+</Info>
+
+## Removing User from Docker Group
+
+<Steps>
+  <Step title="Remove Group Membership">
+    Remove your user from the `docker` group:
+    ```bash
+    sudo gpasswd -d $USER docker
+    ```
+    
+    This command removes the current user from the `docker` group.
+  </Step>
+
+  <Step title="Log Out and Back In">
+    For the change to take effect, you must log out and log back in, or reboot the system:
+    
+    <CodeGroup>
+    ```bash Log Out (Command Line)
+    # On most systems:
+    gnome-session-quit
+    # Or use your desktop environment's logout command
+    ```
+    
+    ```bash Reboot
+    sudo reboot
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Verify Removal">
+    After logging back in, verify you're no longer in the docker group:
+    ```bash
+    groups | grep docker
+    ```
+    
+    The command should return nothing if you were successfully removed.
+  </Step>
+
+  <Step title="Test Docker Access">
+    Confirm that Docker now requires `sudo`:
+    ```bash
+    docker ps
+    ```
+    
+    You should see a permission denied error. This confirms the group removal worked.
+  </Step>
+</Steps>
+
+<Warning>
+Remember to log out/log in or reboot after removing your user from the docker group. The change will not take effect until you do.
+</Warning>
+
+## Docker Socket Permission Restoration
+
+<Warning>
+**CRITICAL SECURITY WARNING:** Never change the Docker socket permissions to `666`! This is a severe security risk.
+</Warning>
+
+The correct and secure way to run Docker without `sudo` is to add your user to the `docker` group, **not** to change socket permissions.
+
+### If You Accidentally Changed Socket Permissions
+
+If you previously and incorrectly changed the Docker socket permissions, restore the defaults:
+
+<Steps>
+  <Step title="Restore Default Permissions">
+    The default permissions are usually `660` with owner `root` and group `docker`:
+    ```bash
+    sudo chmod 660 /var/run/docker.sock
+    sudo chown root:docker /var/run/docker.sock
+    ```
+    
+    <Warning>
+    Only run these commands if you incorrectly changed permissions before.
+    </Warning>
+  </Step>
+
+  <Step title="Verify Permissions">
+    Check that permissions are correctly set:
+    ```bash
+    ls -l /var/run/docker.sock
+    ```
+    
+    Expected output:
+    ```bash
+    srw-rw---- 1 root docker 0 <date> /var/run/docker.sock
+    ```
+    
+    - `srw-rw----` means permissions are `660` (read/write for owner and group only)
+    - Owner: `root`
+    - Group: `docker`
+  </Step>
+
+  <Step title="Restart Docker (If Needed)">
+    If you're experiencing issues after restoring permissions, restart Docker:
+    ```bash
+    sudo systemctl restart docker
+    ```
+  </Step>
+</Steps>
+
+### Why chmod 666 is Dangerous
+
+<Accordion title="Understanding the security risk">
+
+**What `chmod 666` does:**
+- Gives read and write permissions to everyone (owner, group, and all other users)
+- Allows any user on the system to control Docker
+- Effectively grants root access to all users
+
+**Security implications:**
+- Any user can run containers with root privileges
+- Attackers with limited access can escalate to root
+- Malicious processes can access Docker without authorization
+
+**The correct approach:**
+- Use `chmod 660` (default): Only root and docker group members can access
+- Add trusted users to the `docker` group: Controlled access management
+- Log out/log in for group changes to take effect: Proper security boundaries
+
+</Accordion>
+
+## Complete Cleanup Procedure
+
+To fully revert all changes and restore your system to its pre-container state:
+
+<Steps>
+  <Step title="Revoke Display Access">
+    ```bash
+    xhost -local:docker
+    ```
+  </Step>
+
+  <Step title="Remove Docker Group Membership">
+    ```bash
+    sudo gpasswd -d $USER docker
+    ```
+  </Step>
+
+  <Step title="Restore Socket Permissions (If Changed)">
+    ```bash
+    sudo chmod 660 /var/run/docker.sock
+    sudo chown root:docker /var/run/docker.sock
+    ```
+  </Step>
+
+  <Step title="Clean Startup Scripts">
+    Remove any `xhost +local:docker` lines from:
+    - `~/.profile`
+    - `~/.xinitrc`
+    - `~/.xprofile`
+    - `~/.bash_profile`
+    - Any other shell or session startup files
+  </Step>
+
+  <Step title="Remove Container and Images (Optional)">
+    If you want to completely remove Docker artifacts:
+    
+    <CodeGroup>
+    ```bash Remove Containers
+    # Remove all stopped containers
+    docker container prune -a
+    ```
+    
+    ```bash Remove Raylib Image
+    # Remove the raylib_container image
+    docker rmi raylib_container
+    ```
+    
+    ```bash Remove All Images
+    # Remove all Docker images (use with caution)
+    docker image prune -a
+    ```
+    </CodeGroup>
+    
+    <Warning>
+    These commands will delete Docker containers and images. Make sure you don't need them before proceeding.
+    </Warning>
+  </Step>
+
+  <Step title="Log Out and Log Back In">
+    Log out and log back in (or reboot) for all changes to take effect:
+    ```bash
+    # Log out using your desktop environment, or:
+    sudo reboot
+    ```
+  </Step>
+</Steps>
+
+## Verification
+
+After completing the cleanup, verify all changes were reverted:
+
+<Steps>
+  <Step title="Check Group Membership">
+    ```bash
+    groups | grep docker
+    ```
+    Should return nothing.
+  </Step>
+
+  <Step title="Check Docker Access">
+    ```bash
+    docker ps
+    ```
+    Should show a permission denied error.
+  </Step>
+
+  <Step title="Check xhost Access">
+    ```bash
+    xhost
+    ```
+    Should not list Docker in the access control list.
+  </Step>
+
+  <Step title="Check Socket Permissions">
+    ```bash
+    ls -l /var/run/docker.sock
+    ```
+    Should show `srw-rw---- 1 root docker`.
+  </Step>
+</Steps>
+
+<Tip>
+If you want to use the Raylib Container again in the future, you'll need to repeat the prerequisites setup from the Getting Started guide.
+</Tip>

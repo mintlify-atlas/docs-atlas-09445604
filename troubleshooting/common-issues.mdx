@@ -1,0 +1,236 @@
+---
+title: 'Common Issues'
+description: 'Solutions for common Docker and container setup problems'
+---
+
+This page covers the most frequent issues users encounter when setting up and running the Raylib Container.
+
+## Docker Permission Issues
+
+<Accordion title="Error: Cannot connect to the Docker daemon... Permission denied">
+
+**Error Message:**
+```bash
+docker: Cannot connect to the Docker daemon... Permission denied.
+```
+
+**Cause:**
+
+This error occurs when your user account doesn't have permission to access the Docker daemon. You either haven't added your user to the `docker` group, or you didn't log out/log in after adding them.
+
+**Solutions:**
+
+<Steps>
+  <Step title="Temporary Solution">
+    Use `sudo` to run Docker commands:
+    ```bash
+    sudo docker run -it --rm raylib_container
+    ```
+  </Step>
+
+  <Step title="Permanent Solution (Recommended)">
+    Add your user to the docker group:
+    ```bash
+    sudo usermod -aG docker $USER
+    ```
+    
+    <Warning>
+    After running this command, you **must log out and log back in** or **reboot the system** for the group change to take effect.
+    </Warning>
+  </Step>
+
+  <Step title="Verify Group Membership">
+    After logging back in, verify you're in the docker group:
+    ```bash
+    groups | grep docker
+    ```
+  </Step>
+</Steps>
+
+**Important Note:**
+
+Depending on the specific configuration of your Linux distribution, there might be situations (for example, when trying to interact with the graphical interface from within a container) where using `sudo` might still be necessary for some tasks, even if the user is a member of the `docker` group.
+
+</Accordion>
+
+## Image Reference Issues
+
+<Accordion title="Error: invalid reference format">
+
+**Error Message:**
+```bash
+docker: invalid reference format
+```
+
+**Cause:**
+
+This error typically occurs when:
+- The image name is misspelled in the `docker run` command
+- The image doesn't exist locally
+- There's a syntax error in the Docker command
+
+**Solutions:**
+
+<Steps>
+  <Step title="Verify Image Name">
+    Check that the image name is spelled correctly. The correct name is `raylib_container`:
+    ```bash
+    docker run -it --rm raylib_container
+    ```
+  </Step>
+
+  <Step title="List Available Images">
+    Verify the image exists locally:
+    ```bash
+    docker images
+    ```
+    
+    Look for `raylib_container` in the output.
+  </Step>
+
+  <Step title="Build the Image">
+    If the image doesn't exist, build it:
+    ```bash
+    docker build -t raylib_container .
+    ```
+  </Step>
+</Steps>
+
+</Accordion>
+
+## Image Not Found
+
+<Accordion title="Image doesn't exist locally">
+
+**Problem:**
+
+You're trying to run a container, but the `raylib_container` image hasn't been built yet.
+
+**Solution:**
+
+<Steps>
+  <Step title="Navigate to Project Directory">
+    Navigate to the directory containing the `Dockerfile`:
+    ```bash
+    cd /path/to/raylib-container
+    ```
+  </Step>
+
+  <Step title="Build the Image">
+    Build the image using one of these commands:
+    
+    <CodeGroup>
+    ```bash Standard Build
+    docker build -t raylib_container .
+    ```
+    
+    ```bash Detailed Build
+    docker build --pull --rm -f 'Dockerfile' -t 'raylib_container:test' '.'
+    ```
+    </CodeGroup>
+    
+    <Info>
+    When building the image, Raylib is cloned and compiled directly from the official GitHub repository, ensuring you always have the latest version available.
+    </Info>
+  </Step>
+
+  <Step title="Verify Build">
+    Confirm the image was created:
+    ```bash
+    docker images | grep raylib_container
+    ```
+  </Step>
+</Steps>
+
+</Accordion>
+
+## Outdated or Corrupted Image
+
+<Accordion title="Need to rebuild the image">
+
+**When to Rebuild:**
+
+- The image seems outdated or corrupted
+- You modified the `Dockerfile`
+- You want to get a newer version of Raylib
+- You're experiencing unexplained errors
+
+**Solution:**
+
+<Steps>
+  <Step title="Remove Old Image (Optional)">
+    Optionally remove the old image first:
+    ```bash
+    docker rmi raylib_container
+    ```
+  </Step>
+
+  <Step title="Rebuild">
+    Rebuild the image:
+    
+    <CodeGroup>
+    ```bash Standard Rebuild
+    docker build -t raylib_container .
+    ```
+    
+    ```bash Force Rebuild (No Cache)
+    docker build --no-cache -t raylib_container .
+    ```
+    
+    ```bash Pull Latest Base Image
+    docker build --pull --rm -f 'Dockerfile' -t 'raylib_container:test' '.'
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+<Tip>
+The `--pull` flag ensures you get the latest Alpine Linux base image, and `--no-cache` forces a complete rebuild without using cached layers.
+</Tip>
+
+</Accordion>
+
+## Session-Specific Issues
+
+<Accordion title="Display access lost after reboot or new session">
+
+**Problem:**
+
+Graphics were working before, but after rebooting or starting a new graphical session, you get display errors.
+
+**Cause:**
+
+The `xhost +local:docker` command needs to be run in each new graphical session.
+
+**Solutions:**
+
+<Steps>
+  <Step title="Quick Fix">
+    Run the xhost command again:
+    ```bash
+    xhost +local:docker
+    ```
+  </Step>
+
+  <Step title="Permanent Fix">
+    Add the command to your startup scripts so it runs automatically:
+    
+    <CodeGroup>
+    ```bash ~/.profile
+    # Add to ~/.profile
+    xhost +local:docker
+    ```
+    
+    ```bash ~/.xinitrc
+    # Add to ~/.xinitrc
+    xhost +local:docker
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+<Note>
+The specific startup file depends on your desktop environment and login manager. Common options include `.profile`, `.xinitrc`, `.xprofile`, or `.bash_profile`.
+</Note>
+
+</Accordion>

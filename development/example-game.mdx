@@ -1,0 +1,478 @@
+---
+title: 'Example Game Walkthrough'
+description: 'Build and run the included Raylib example game - a complete tutorial'
+---
+
+The Raylib Container includes a complete example game in `user_code/my_game.c`. This walkthrough explains the code, demonstrates how to compile and run it, and shows how to customize it for your own projects.
+
+## What You'll Build
+
+The example game is a simple Raylib application that:
+- Creates an 800x450 pixel window
+- Sets the frame rate to 60 FPS
+- Displays a congratulatory message
+- Runs a game loop until the window is closed
+
+While basic, this example demonstrates the fundamental structure of every Raylib game and provides a solid starting point for your own projects.
+
+## The Complete Source Code
+
+Here's the full `my_game.c` file included in the container:
+
+```c
+/*******************************************************************************************
+*
+*   raylib [core] example - Basic window
+*
+*   Example complexity rating: [★☆☆☆] 1/4
+*
+*   Welcome to raylib!
+*
+*   To test examples, just press F6 and execute 'raylib_compile_execute' script
+*   Note that compiled executable is placed in the same folder as .c file
+*
+*   To test the examples on Web, press F6 and execute 'raylib_compile_execute_web' script
+*   Web version of the program is generated in the same folder as .c file
+*
+*   You can find all basic examples on C:\raylib\raylib\examples folder or
+*   raylib official webpage: www.raylib.com
+*
+*   Enjoy using raylib. :)
+*
+*   Example originally created with raylib 1.0, last time updated with raylib 1.0
+*
+*   Example licensed under an unmodified zlib/libpng license, which is an OSI-certified,
+*   BSD-like license that allows static linking with closed source software
+*
+*   Copyright (c) 2013-2025 Ramon Santamaria (@raysan5)
+*
+********************************************************************************************/
+
+#include "raylib.h"
+
+//------------------------------------------------------------------------------------
+// Program main entry point
+//------------------------------------------------------------------------------------
+int main(void)
+{
+    // Initialization
+    //--------------------------------------------------------------------------------------
+    const int screenWidth = 800;
+    const int screenHeight = 450;
+
+    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+
+    SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
+    //--------------------------------------------------------------------------------------
+
+    // Main game loop
+    while (!WindowShouldClose())    // Detect window close button or ESC key
+    {
+        // Update
+        //----------------------------------------------------------------------------------
+        // TODO: Update your variables here
+        //----------------------------------------------------------------------------------
+
+        // Draw
+        //----------------------------------------------------------------------------------
+        BeginDrawing();
+
+            ClearBackground(RAYWHITE);
+
+            DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+
+        EndDrawing();
+        //----------------------------------------------------------------------------------
+    }
+
+    // De-Initialization
+    //--------------------------------------------------------------------------------------
+    CloseWindow();        // Close window and OpenGL context
+    //--------------------------------------------------------------------------------------
+
+    return 0;
+}
+```
+
+## Understanding the Code
+
+Let's break down each section of the example game:
+
+### Header Include
+
+```c
+#include "raylib.h"
+```
+
+This line includes the Raylib library header, giving you access to all Raylib functions, types, and constants. **Every Raylib program must include this header.**
+
+### Initialization Section
+
+```c
+const int screenWidth = 800;
+const int screenHeight = 450;
+
+InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+
+SetTargetFPS(60);
+```
+
+<Accordion title="Initialization API Calls">
+  **`InitWindow(width, height, title)`**
+  - Creates the game window and initializes the graphics context
+  - Must be called before any other Raylib drawing functions
+  - Parameters:
+    - `width`: Window width in pixels (800)
+    - `height`: Window height in pixels (450)
+    - `title`: Text displayed in the window title bar
+
+  **`SetTargetFPS(fps)`**
+  - Sets the desired frames per second for the game loop
+  - Raylib will automatically handle timing to maintain this rate
+  - Common values: 60 (smooth gameplay), 30 (battery saving), 144 (high refresh displays)
+</Accordion>
+
+### Main Game Loop
+
+```c
+while (!WindowShouldClose())
+{
+    // Update
+    // TODO: Update your variables here
+
+    // Draw
+    BeginDrawing();
+        ClearBackground(RAYWHITE);
+        DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+    EndDrawing();
+}
+```
+
+This is the heart of every Raylib game. The loop continues until the user closes the window or presses ESC.
+
+<Accordion title="Game Loop API Calls">
+  **`WindowShouldClose()`**
+  - Returns `true` if the user pressed ESC or clicked the window close button
+  - Returns `false` otherwise, keeping the loop running
+
+  **`BeginDrawing()`**
+  - Starts the drawing phase of the current frame
+  - Must be called before any drawing functions
+  - Prepares the frame buffer for rendering
+
+  **`ClearBackground(color)`**
+  - Clears the entire screen with the specified color
+  - `RAYWHITE` is a predefined light gray color
+  - Should be called at the start of every frame
+
+  **`DrawText(text, x, y, fontSize, color)`**
+  - Renders text at the specified position
+  - Parameters:
+    - `text`: String to display
+    - `x`, `y`: Position in pixels (190, 200)
+    - `fontSize`: Text size in pixels (20)
+    - `color`: Text color (`LIGHTGRAY`)
+
+  **`EndDrawing()`**
+  - Finalizes the frame and displays it on screen
+  - Handles frame timing based on `SetTargetFPS`
+  - Must be called after all drawing operations
+</Accordion>
+
+### Cleanup Section
+
+```c
+CloseWindow();
+return 0;
+```
+
+**`CloseWindow()`** properly shuts down the graphics context and releases resources. **Always call this before your program exits.**
+
+<Note>
+Raylib follows a simple pattern: Initialize → Game Loop (Update + Draw) → Cleanup. Every Raylib game follows this same structure.
+</Note>
+
+## Compile and Run the Example
+
+Follow these steps to build and run the example game:
+
+<Steps>
+  <Step title="Ensure you're in the correct directory">
+    The example is located in `/app/user_code`:
+    
+    ```bash
+    cd /app/user_code
+    ls my_game.c  # Verify the file exists
+    ```
+  </Step>
+
+  <Step title="Compile the game">
+    Use GCC with all required Raylib library flags:
+    
+    ```bash
+    gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+    ```
+    
+    If compilation succeeds, you'll return to the shell prompt with no errors.
+  </Step>
+
+  <Step title="Run the compiled executable">
+    Execute your game:
+    
+    ```bash
+    ./my_game
+    ```
+    
+    A window should appear displaying the congratulatory message!
+  </Step>
+
+  <Step title="Test the game">
+    Try the following:
+    - Move the window around your screen
+    - Press **ESC** to close the game
+    - Click the window's close button (X)
+    
+    The game should exit cleanly and return you to the terminal.
+  </Step>
+</Steps>
+
+<Info>
+If the window doesn't appear, verify your graphics setup is working by running `xeyes`. If xeyes doesn't work, check that you ran `xhost +local:docker` on your host system.
+</Info>
+
+## Customizing the Example
+
+Now that you have the basic example running, let's customize it! Here are some simple modifications to try:
+
+### Change the Window Size
+
+Edit the window dimensions:
+
+```c
+const int screenWidth = 1280;  // Changed from 800
+const int screenHeight = 720;  // Changed from 450
+```
+
+Recompile and run to see a larger window.
+
+### Change the Background Color
+
+Raylib provides many predefined colors:
+
+```c
+ClearBackground(DARKBLUE);  // Try: BLACK, BLUE, RED, GREEN, etc.
+```
+
+### Add More Text
+
+Draw multiple text elements at different positions:
+
+```c
+BeginDrawing();
+    ClearBackground(RAYWHITE);
+    
+    DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+    DrawText("Press ESC to exit", 290, 250, 20, GRAY);
+    DrawText("Made with Raylib", 310, 400, 16, DARKGRAY);
+    
+EndDrawing();
+```
+
+### Add Simple Animation
+
+Make the text move across the screen:
+
+```c
+int textX = 0;  // Add this before the game loop
+
+while (!WindowShouldClose())
+{
+    // Update
+    textX += 2;  // Move 2 pixels right each frame
+    if (textX > 800) textX = -400;  // Wrap around
+    
+    // Draw
+    BeginDrawing();
+        ClearBackground(RAYWHITE);
+        DrawText("Moving text!", textX, 200, 20, LIGHTGRAY);
+    EndDrawing();
+}
+```
+
+### Draw Shapes
+
+Raylib can draw more than just text:
+
+```c
+BeginDrawing();
+    ClearBackground(RAYWHITE);
+    
+    // Draw a circle
+    DrawCircle(400, 225, 50, RED);
+    
+    // Draw a rectangle
+    DrawRectangle(300, 150, 200, 100, BLUE);
+    
+    // Draw a line
+    DrawLine(0, 0, 800, 450, GREEN);
+    
+    DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+    
+EndDrawing();
+```
+
+<Tip>
+After making any changes to the source code, remember to recompile with the GCC command before running again. Your old executable won't reflect the changes until you rebuild.
+</Tip>
+
+## Common Raylib Patterns
+
+The example demonstrates several patterns you'll use in every Raylib game:
+
+### The Update-Draw Separation
+
+```c
+while (!WindowShouldClose())
+{
+    // Update: Modify game state, handle input, update physics
+    // (Empty in this example)
+    
+    // Draw: Render everything to the screen
+    BeginDrawing();
+        // All drawing code here
+    EndDrawing();
+}
+```
+
+This separation keeps your code organized and ensures rendering happens at the right time.
+
+### Const Window Dimensions
+
+```c
+const int screenWidth = 800;
+const int screenHeight = 450;
+```
+
+Storing dimensions in constants makes it easy to reference them throughout your code and change them in one place.
+
+### Clean Resource Management
+
+```c
+InitWindow(...)     // Acquire resources
+// Use resources
+CloseWindow()       // Release resources
+```
+
+This pattern ensures proper cleanup and prevents resource leaks.
+
+## Building on the Example
+
+Now that you understand the basic structure, here are next steps for creating your own games:
+
+<CardGroup cols={2}>
+  <Card title="Add Input Handling" icon="keyboard">
+    Check for key presses with `IsKeyPressed(KEY_SPACE)` to add player controls
+  </Card>
+  
+  <Card title="Load Textures" icon="image">
+    Use `LoadTexture("image.png")` and `DrawTexture()` to add graphics
+  </Card>
+  
+  <Card title="Play Sounds" icon="volume">
+    Initialize audio with `InitAudioDevice()` and play sounds with `PlaySound()`
+  </Card>
+  
+  <Card title="Detect Collisions" icon="circle-nodes">
+    Use `CheckCollisionRecs()` and `CheckCollisionCircles()` for game physics
+  </Card>
+</CardGroup>
+
+<Warning>
+When loading external assets (textures, sounds, fonts), make sure the file paths are correct relative to where you run the executable. Use the `assets/` subdirectory for organization.
+</Warning>
+
+## Complete Game Template
+
+Here's an enhanced template with common game features ready to fill in:
+
+```c
+#include "raylib.h"
+
+// Game constants
+const int screenWidth = 800;
+const int screenHeight = 450;
+const int targetFPS = 60;
+
+// Game state
+typedef struct Player {
+    Vector2 position;
+    float speed;
+    int score;
+} Player;
+
+int main(void)
+{
+    // Initialization
+    InitWindow(screenWidth, screenHeight, "My Raylib Game");
+    SetTargetFPS(targetFPS);
+    
+    // Initialize game state
+    Player player = {
+        .position = { screenWidth / 2.0f, screenHeight / 2.0f },
+        .speed = 200.0f,
+        .score = 0
+    };
+    
+    // Main game loop
+    while (!WindowShouldClose())
+    {
+        // Update
+        float deltaTime = GetFrameTime();
+        
+        // Handle input
+        if (IsKeyDown(KEY_RIGHT)) player.position.x += player.speed * deltaTime;
+        if (IsKeyDown(KEY_LEFT)) player.position.x -= player.speed * deltaTime;
+        if (IsKeyDown(KEY_DOWN)) player.position.y += player.speed * deltaTime;
+        if (IsKeyDown(KEY_UP)) player.position.y -= player.speed * deltaTime;
+        
+        // Update game logic here
+        
+        // Draw
+        BeginDrawing();
+            ClearBackground(RAYWHITE);
+            
+            // Draw game objects
+            DrawCircleV(player.position, 20, BLUE);
+            
+            // Draw UI
+            DrawText(TextFormat("Score: %d", player.score), 10, 10, 20, DARKGRAY);
+            DrawFPS(screenWidth - 100, 10);
+            
+        EndDrawing();
+    }
+    
+    // Cleanup
+    CloseWindow();
+    return 0;
+}
+```
+
+This template includes:
+- Player movement with keyboard input
+- Delta time for frame-independent movement
+- Score tracking
+- FPS display
+- Structured game state
+
+## Next Steps
+
+You now have a working Raylib game and understand how to customize it. Continue your journey:
+
+- [Learn more about the container environment](/development/working-in-container)
+- [Master the compilation process](/development/compiling-projects)
+- Explore the [official Raylib examples](https://www.raylib.com/examples.html)
+- Read the [Raylib cheatsheet](https://www.raylib.com/cheatsheet/cheatsheet.html) for a complete API reference
+
+<Tip>
+The Raylib community is very active. If you get stuck, check the official examples, join the Discord server, or browse the GitHub discussions for help.
+</Tip>

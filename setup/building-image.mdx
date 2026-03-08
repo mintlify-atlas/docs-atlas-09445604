@@ -1,0 +1,286 @@
+---
+title: Building the Docker Image
+description: Learn how to build the Raylib Container Docker image from source, including the multi-stage build process and Raylib compilation
+---
+
+The Raylib Container uses a multi-stage Docker build to create an optimized image with Raylib compiled from source. This guide covers the build process, customization options, and how to rebuild for updates.
+
+## Quick Start
+
+To build the Docker image, navigate to the directory containing the `Dockerfile` and run:
+
+```bash
+docker build -t raylib_container .
+```
+
+This command builds the image and tags it as `raylib_container` for easy reference.
+
+<Note>
+Raylib is cloned and compiled directly from the official GitHub repository during the build, ensuring you always have the latest version available.
+</Note>
+
+## Multi-Stage Build Process
+
+The Dockerfile uses a two-stage build to minimize the final image size while including all necessary development tools.
+
+### Stage 1: Builder Stage
+
+The first stage compiles Raylib from source:
+
+```dockerfile
+# Stage 1: Build (Compilação)
+FROM alpine:latest AS builder
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    git \
+    cmake \
+    make \
+    gcc \
+    g++ \
+    linux-headers \
+    mesa-dev \
+    alsa-lib-dev \
+    libx11-dev \
+    libxrandr-dev \
+    libxinerama-dev \
+    libxcursor-dev \
+    libxi-dev && \
+    rm -rf /var/cache/apk/*
+```
+
+This stage:
+- Starts from Alpine Linux for minimal base size
+- Installs all build dependencies (CMake, GCC, development headers)
+- Cleans up package cache to reduce layer size
+
+### Raylib Compilation
+
+Raylib is cloned and compiled with optimized settings:
+
+```dockerfile
+WORKDIR /tmp
+
+RUN git clone --depth=1 https://github.com/raysan5/raylib.git && \
+    cd raylib && \
+    mkdir build && cd build && \
+    cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DPLATFORM=Desktop \
+    -DBUILD_SHARED_LIBS=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    make -j$(nproc) && \
+    make install
+```
+
+<Accordion title="Build Configuration Details">
+- **`--depth=1`**: Shallow clone to reduce download size and time
+- **`CMAKE_BUILD_TYPE=Release`**: Optimized build with no debug symbols
+- **`PLATFORM=Desktop`**: Target desktop/Linux platform
+- **`BUILD_SHARED_LIBS=ON`**: Build shared libraries (.so files)
+- **`make -j$(nproc)`**: Parallel compilation using all available CPU cores
+</Accordion>
+
+The builder stage also clones the raylib-quickstart template for reference:
+
+```dockerfile
+RUN git clone --depth=1 https://github.com/raylib-extras/raylib-quickstart.git /tmp/raylib-quickstart
+```
+
+### Stage 2: Runtime Stage
+
+The second stage creates the final image with only runtime dependencies:
+
+```dockerfile
+# Stage 2: Runtime (Execução)
+FROM alpine:latest
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    mesa-gl \
+    alsa-lib \
+    libx11 \
+    mesa-dev \
+    libx11-dev \
+    libxrandr \
+    libxinerama \
+    libxcursor \
+    libxi \
+    xeyes \
+    gcc \
+    g++ \
+    make && \
+    rm -rf /var/cache/apk/*
+```
+
+This stage:
+- Includes OpenGL/Mesa libraries for graphics rendering
+- Adds X11 libraries for display server communication
+- Includes GCC/G++ for compiling user code inside the container
+- Installs `xeyes` as a test utility for graphics verification
+
+### Copying Build Artifacts
+
+The compiled Raylib libraries are copied from the builder stage:
+
+```dockerfile
+COPY --from=builder /usr/local /usr/local
+```
+
+This includes:
+- Raylib shared libraries (.so files)
+- Header files for development
+- CMake configuration files
+
+Finally, the working directory and volume are configured:
+
+```dockerfile
+RUN mkdir -p /app/user_code
+WORKDIR /app/user_code
+
+VOLUME ["/app/user_code"]
+```
+
+## Build Command Variations
+
+### Basic Build
+
+Standard build with default settings:
+
+```bash
+docker build -t raylib_container .
+```
+
+### Build with Tag
+
+Create a tagged version for testing or versioning:
+
+```bash
+docker build -t raylib_container:test .
+```
+
+### Build with Pull and Cleanup
+
+Force pull the latest base image and clean up intermediate containers:
+
+```bash
+docker build --pull --rm -f 'Dockerfile' -t 'raylib_container:test' '.'
+```
+
+<Info>
+**Flag Explanations:**
+- `--pull`: Always attempt to pull a newer version of the base image
+- `--rm`: Remove intermediate containers after successful build
+- `-f 'Dockerfile'`: Explicitly specify the Dockerfile path
+</Info>
+
+### No-Cache Build
+
+Force a complete rebuild without using the cache:
+
+```bash
+docker build --no-cache -t raylib_container .
+```
+
+Use this when:
+- You want the absolute latest Raylib version from GitHub
+- Build artifacts might be corrupted
+- Troubleshooting build issues
+
+## Rebuilding for Updates
+
+You should rebuild the image when:
+
+<CardGroup cols={2}>
+  <Card title="Raylib Updates" icon="code-branch">
+    Get the latest Raylib version from the official repository
+  </Card>
+  <Card title="Dockerfile Changes" icon="file-code">
+    After modifying the Dockerfile to add dependencies or change configuration
+  </Card>
+  <Card title="Base Image Updates" icon="box">
+    Pull security patches and updates from Alpine Linux
+  </Card>
+  <Card title="Troubleshooting" icon="wrench">
+    Fix corrupted or outdated images
+  </Card>
+</CardGroup>
+
+### Update Workflow
+
+<Steps>
+  <Step title="Pull Latest Source">
+    If you've cloned the repository, pull the latest changes:
+    ```bash
+    git pull origin main
+    ```
+  </Step>
+  
+  <Step title="Rebuild Image">
+    Build with the `--pull` flag to get the latest base image:
+    ```bash
+    docker build --pull -t raylib_container .
+    ```
+  </Step>
+  
+  <Step title="Verify Build">
+    Check that the new image exists:
+    ```bash
+    docker images | grep raylib_container
+    ```
+  </Step>
+  
+  <Step title="Remove Old Images (Optional)">
+    Clean up old, untagged images to save space:
+    ```bash
+    docker image prune
+    ```
+  </Step>
+</Steps>
+
+## Build Troubleshooting
+
+<Warning>
+If the build fails during Raylib compilation, ensure you have a stable internet connection. The build process clones from GitHub, which requires network access.
+</Warning>
+
+### Common Build Issues
+
+**Error: "Cannot connect to the Docker daemon"**
+
+Ensure Docker is running and you have proper permissions. Add your user to the docker group:
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+Then log out and back in for changes to take effect.
+
+**Error: "No space left on device"**
+
+Docker has run out of disk space. Clean up unused images and containers:
+
+```bash
+docker system prune -a
+```
+
+**Build hangs during Raylib compilation**
+
+The parallel build might be using too many resources. You can modify the Dockerfile to limit parallel jobs, but this is usually not necessary.
+
+## Build Time Expectations
+
+Typical build times:
+- **First build**: 3-8 minutes (depending on CPU and network speed)
+- **Cached rebuild**: 30 seconds - 2 minutes
+- **No-cache rebuild**: 3-8 minutes
+
+The Raylib compilation step is the most time-consuming part of the build process.
+
+<Tip>
+Use Docker's layer caching by keeping the Dockerfile structure stable. Only modify later stages to take advantage of cached earlier stages.
+</Tip>
+
+## Next Steps
+
+After building the image, you're ready to run containers. See the [Running Container](/setup/running-container) guide for detailed instructions on launching and managing containers.

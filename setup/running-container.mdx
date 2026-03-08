@@ -1,0 +1,380 @@
+---
+title: Running the Container
+description: Complete guide to running Raylib Container with docker run, including all flags, environment variables, volume mounts, and lifecycle management
+---
+
+This guide covers everything you need to know about running the Raylib Container, from basic usage to advanced configuration options.
+
+## Quick Start
+
+Start an interactive container with graphics support:
+
+```bash
+docker run -it --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    --device /dev/dri:/dev/dri \
+    raylib_container
+```
+
+This launches a container with:
+- Interactive terminal access
+- Auto-removal when you exit
+- Graphics display connection
+- Your code directory mounted
+- Hardware-accelerated graphics
+
+## Docker Run Flags Explained
+
+Understanding each flag in the `docker run` command:
+
+### `-it`: Interactive Terminal
+
+```bash
+-it
+```
+
+<Accordion title="What does -it do?">
+This is actually two flags combined:
+- **`-i`** (interactive): Keep STDIN open even if not attached
+- **`-t`** (tty): Allocate a pseudo-TTY terminal
+
+Together, they give you an interactive shell inside the container where you can run commands, compile code, and execute programs.
+</Accordion>
+
+### `--rm`: Auto-Remove Container
+
+```bash
+--rm
+```
+
+Automatically removes the container when it exits. This prevents accumulation of stopped containers and keeps your system clean.
+
+<Info>
+Without `--rm`, each time you run the container, Docker creates a new stopped container that persists on disk. You'd need to manually remove them with `docker rm`.
+</Info>
+
+### `-e DISPLAY=$DISPLAY`: Display Environment
+
+```bash
+-e DISPLAY=$DISPLAY
+```
+
+Passes your host's `DISPLAY` environment variable to the container, telling graphical applications which screen to use.
+
+**What this does:**
+- `$DISPLAY` on the host typically contains `:0` or `:1` (your display number)
+- The container uses this to connect to the X11 server
+- Without this, graphical windows won't know where to appear
+
+### `-v /tmp/.X11-unix:/tmp/.X11-unix`: X11 Socket
+
+```bash
+-v /tmp/.X11-unix:/tmp/.X11-unix
+```
+
+Mounts the X11 Unix socket from your host into the container, enabling graphical communication.
+
+<Accordion title="Understanding X11 Socket Mounting">
+- **`/tmp/.X11-unix`**: Directory containing Unix domain sockets for X11
+- The format is `-v <host-path>:<container-path>`
+- This creates a bidirectional communication channel for graphics
+- Required for any GUI application to display windows
+</Accordion>
+
+### `-v ./user_code:/app/user_code`: Code Volume
+
+```bash
+-v ./user_code:/app/user_code
+```
+
+Mounts your local `user_code` directory to `/app/user_code` inside the container.
+
+**Key behaviors:**
+- Files are synchronized between host and container in real-time
+- Changes made inside the container persist on your host
+- If `./user_code` doesn't exist, Docker creates it automatically
+- You can use an absolute path instead: `-v /path/to/my/code:/app/user_code`
+
+<Warning>
+Always use the `user_code` directory for your game source code. Files outside this volume won't persist after the container stops.
+</Warning>
+
+### `--device /dev/dri:/dev/dri`: GPU Access
+
+```bash
+--device /dev/dri:/dev/dri
+```
+
+Maps the Direct Rendering Infrastructure (DRI) devices from host to container, enabling hardware-accelerated graphics.
+
+**What gets mapped:**
+- `/dev/dri/card0`: Primary GPU device
+- `/dev/dri/renderD128`: Render node for GPU computation
+- Additional cards/nodes if you have multiple GPUs
+
+See [Graphics Options](/setup/graphics-options) for more details on hardware acceleration.
+
+## Run Scenarios
+
+<Tabs>
+  <Tab title="Hardware Acceleration">
+    **Recommended for best performance**
+    
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        --device /dev/dri:/dev/dri \
+        raylib_container
+    ```
+    
+    Use when:
+    - Your system has a working GPU with proper drivers
+    - You need maximum graphics performance
+    - Running complex 3D games or high-framerate applications
+  </Tab>
+  
+  <Tab title="Software Rendering">
+    **Fallback for compatibility**
+    
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        -e LIBGL_ALWAYS_SOFTWARE=1 \
+        raylib_container
+    ```
+    
+    Use when:
+    - Hardware acceleration fails with DRI/Mesa errors
+    - GPU drivers aren't properly configured
+    - Testing compatibility across different systems
+    - You don't need high performance
+    
+    <Note>
+    Software rendering uses CPU instead of GPU, resulting in lower framerates and higher CPU usage.
+    </Note>
+  </Tab>
+  
+  <Tab title="Custom Code Path">
+    **Using a different directory**
+    
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v /home/myuser/projects/game:/app/user_code \
+        --device /dev/dri:/dev/dri \
+        raylib_container
+    ```
+    
+    Specify an absolute path to mount any directory as your code volume.
+  </Tab>
+  
+  <Tab title="Multiple Volumes">
+    **Mounting additional directories**
+    
+    ```bash
+    docker run -it --rm \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ./user_code:/app/user_code \
+        -v ./assets:/app/assets:ro \
+        --device /dev/dri:/dev/dri \
+        raylib_container
+    ```
+    
+    The `:ro` flag makes the assets volume read-only inside the container.
+  </Tab>
+</Tabs>
+
+## Container Lifecycle Management
+
+### Interactive Mode vs Detached Mode
+
+**Interactive Mode** (recommended for development):
+
+```bash
+docker run -it --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    --device /dev/dri:/dev/dri \
+    raylib_container
+```
+
+You get a shell inside the container and can run commands directly.
+
+**Detached Mode** (runs in background):
+
+```bash
+docker run -d \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ./user_code:/app/user_code \
+    --device /dev/dri:/dev/dri \
+    --name raylib_dev \
+    raylib_container \
+    sleep infinity
+```
+
+Then attach to it:
+
+```bash
+docker exec -it raylib_dev /bin/sh
+```
+
+<Info>
+Detached mode is useful for long-running development sessions where you want to attach/detach multiple times without stopping the container.
+</Info>
+
+### Starting and Stopping
+
+<Steps>
+  <Step title="Check Running Containers">
+    ```bash
+    docker ps
+    ```
+    Lists all currently running containers.
+  </Step>
+  
+  <Step title="Stop a Running Container">
+    ```bash
+    docker stop <container_id_or_name>
+    ```
+    Gracefully stops the container (if not using `--rm`).
+  </Step>
+  
+  <Step title="Exit Interactive Session">
+    Inside the container, type:
+    ```bash
+    exit
+    ```
+    With `--rm`, this removes the container automatically.
+  </Step>
+  
+  <Step title="View All Containers">
+    ```bash
+    docker ps -a
+    ```
+    Shows running and stopped containers.
+  </Step>
+</Steps>
+
+### Persistent vs Ephemeral Containers
+
+**Ephemeral (with `--rm`):**
+
+```bash
+docker run -it --rm raylib_container
+```
+
+- Container is deleted on exit
+- Any changes inside (except volumes) are lost
+- Clean and recommended for most use cases
+
+**Persistent (without `--rm`):**
+
+```bash
+docker run -it --name my_raylib raylib_container
+```
+
+- Container persists after exit
+- Can be restarted with `docker start -i my_raylib`
+- System packages you install remain across sessions
+- Must be manually removed with `docker rm my_raylib`
+
+## Working Inside the Container
+
+Once inside the container, you'll be in the `/app/user_code` directory:
+
+### Verifying Graphics Connection
+
+```bash
+xeyes
+```
+
+A window with eyes should appear. If it does, your graphics setup is working correctly.
+
+### Compiling Code
+
+Navigate to your code and compile:
+
+```bash
+gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+```
+
+### Running Programs
+
+```bash
+./my_game
+```
+
+Your game window should appear on your host display.
+
+## Environment Variables
+
+Common environment variables you can pass:
+
+| Variable | Purpose | Example |
+|----------|---------|----------|
+| `DISPLAY` | X11 display target | `-e DISPLAY=$DISPLAY` |
+| `LIBGL_ALWAYS_SOFTWARE` | Force software rendering | `-e LIBGL_ALWAYS_SOFTWARE=1` |
+| `LIBGL_DEBUG` | Enable OpenGL debugging | `-e LIBGL_DEBUG=verbose` |
+
+## Troubleshooting
+
+<Accordion title="Error: 'Cannot connect to the Docker daemon'">
+**Cause:** Docker daemon isn't running or you don't have permissions.
+
+**Solution:**
+```bash
+# Add user to docker group
+sudo usermod -aG docker $USER
+# Log out and back in, then try again
+```
+</Accordion>
+
+<Accordion title="Error: 'cannot open display'">
+**Cause:** X11 access not configured.
+
+**Solution:**
+```bash
+# Run on host before starting container
+xhost +local:docker
+```
+</Accordion>
+
+<Accordion title="Error: 'invalid reference format'">
+**Cause:** Image name is misspelled or image doesn't exist.
+
+**Solution:**
+```bash
+# Check available images
+docker images | grep raylib
+# Rebuild if needed
+docker build -t raylib_container .
+```
+</Accordion>
+
+<Accordion title="Graphics errors (DRI/Mesa/GLX)">
+**Cause:** Hardware acceleration not working.
+
+**Solution:**
+Switch to software rendering mode. See [Graphics Options](/setup/graphics-options).
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Graphics Configuration" icon="display" href="/setup/graphics-options">
+    Learn about hardware acceleration and rendering options
+  </Card>
+  <Card title="Development Workflow" icon="code" href="/development/compiling-projects">
+    Start building games with Raylib
+  </Card>
+</CardGroup>
