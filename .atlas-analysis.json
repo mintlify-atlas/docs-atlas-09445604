@@ -1,0 +1,71 @@
+{
+  "projectType": "infrastructure",
+  "projectName": "Raylib Container",
+  "projectDescription": "A containerized development environment for game development using Raylib on Docker with hardware acceleration and software rendering options.",
+  "theme": "aspen",
+  "primaryColor": "#244455",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "prerequisites",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Setup & Deployment",
+        "pages": [
+          "setup/building-image",
+          "setup/running-container",
+          "setup/graphics-options"
+        ]
+      },
+      {
+        "group": "Development",
+        "pages": [
+          "development/working-in-container",
+          "development/compiling-projects",
+          "development/example-game"
+        ]
+      },
+      {
+        "group": "Platform Guides",
+        "pages": [
+          "platforms/linux",
+          "platforms/macos",
+          "platforms/windows"
+        ]
+      },
+      {
+        "group": "Troubleshooting",
+        "pages": [
+          "troubleshooting/common-issues",
+          "troubleshooting/graphics-errors",
+          "troubleshooting/reverting-changes"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-stage Docker build with Alpine Linux for minimal image size",
+    "Hardware acceleration support via Direct Rendering Infrastructure (DRI)",
+    "Software rendering fallback with LIBGL_ALWAYS_SOFTWARE",
+    "X11 display forwarding for graphical applications",
+    "macOS compatibility via XQuartz",
+    "Pre-compiled Raylib from official GitHub repository",
+    "GCC and development tools included",
+    "Volume mounting for persistent code development"
+  ],
+  "publicApiSurface": [
+    "docker build -t raylib_container .",
+    "docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v ./user_code:/app/user_code --device /dev/dri:/dev/dri raylib_container",
+    "docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v ./user_code:/app/user_code -e LIBGL_ALWAYS_SOFTWARE=1 raylib_container",
+    "xhost +local:docker",
+    "xhost -local:docker",
+    "gcc my_game.c -o my_game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11"
+  ]
+}
